@@ -364,13 +364,15 @@ class UIRemoveButton extends UIButton {
 class UISpokeLabel {
     private arc: Arc;
     private lines: Array<Line>
+    private label: string;
     private _highlighted: boolean;
     private _selected: boolean;
 
-    constructor(arc: Arc) {
+    constructor(arc: Arc, label: string) {
         this.arc = arc;
         this._highlighted = false;
         this._selected = false;
+        this.label = label;
         this.calc_lines();
     }
 
@@ -432,6 +434,18 @@ class UISpokeLabel {
             
             p5.line(l.a.x, l.a.y, l.b.x, l.b.y);
         }
+        
+        const p = this.lines[1].a;
+        const padding = 10;
+        p5.textSize(16);
+        p5.fill(0);
+        if (p.x < 0) {
+            p5.textAlign(p5.RIGHT);
+            p5.text(this.label, p.x - padding, p.y - padding);
+        } else {
+            p5.textAlign(p5.LEFT);
+            p5.text(this.label, p.x + padding, p.y - padding);
+        }
         p5.pop();
     }
 }
@@ -452,7 +466,7 @@ class UISpoke extends UIElement {
         this._highlighted = false;
         this._selected = false;
 
-        this.label = new UISpokeLabel(arc);
+        this.label = new UISpokeLabel(arc, label);
         this.color = color;
         this.id = id;
     }
