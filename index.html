@@ -3,14 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My p5.js Sketch</title>
-    <!-- Include the p5.js library -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.3/p5.min.js"></script>
-    <!-- Optional: Include p5.sound or other libraries if needed -->
-    <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.3/addons/p5.sound.min.js"></script> -->
+    <title>P5 TypeScript Parcel</title>
+    <script type="module" src="src/index.ts"></script>
+    <style>
+    /* Remove default margins and padding from the body and hide scrollbars */
+    html, body {
+        margin: 0;
+        padding: 0;
+        overflow: hidden; /* Hides both horizontal and vertical scrollbars */
+    }
+    /* Ensure the canvas is a block-level element for proper layout */
+    canvas {
+        display: block;
+    }
+    </style>
 </head>
 <body>
-    <!-- This is where your p5.js sketch will be drawn -->
-    <script src="sketch.js"></script>
 </body>
 </html>

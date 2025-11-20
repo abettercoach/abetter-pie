@@ -1,0 +1,31 @@
+{
+  "name": "abetter_wheel",
+  "version": "1.0.0",
+  "description": "a better wheel of life",
+  "homepage": "https://github.com/abettercoach/abetter_wheel#readme",
+  "bugs": {
+    "url": "https://github.com/abettercoach/abetter_wheel/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/abettercoach/abetter_wheel.git"
+  },
+  "license": "ISC",
+  "author": "iris fernandez",
+  "type": "module",
+  "private": true,
+  "dependencies": {
+    "p5": "0.9.0"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "parcel serve index.html",
+    "build": "parcel build index.html"
+  },
+  "devDependencies": {
+    "@types/p5": "^1.7.7",
+    "parcel": "^2.16.1",
+    "ts-loader": "^9.5.4",
+    "typescript": "^5.9.3"
+  }
+}
