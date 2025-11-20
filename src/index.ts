@@ -18,10 +18,11 @@ interface Wheel {
 /* Math */
 type Point = { x: number, y: number };
 type Line = { a: Point, b: Point };
+
+type Shape = Circle | Rect | Arc;
 type Circle = {o: Point, r: number, kind: 'circle'};
-type Size = { w: number, h: number };
 type Rect = {o: Point, w: number, h: number, kind: 'rect' };
-type Shape = Circle | Rect;
+type Arc = {o: Point, r: number, t1: number, t2: number, kind: 'arc'}
 
 function average(ns: number[]): number {
     console.assert(ns.length > 0, "Attempted to get average of zero length list.");
@@ -59,6 +60,23 @@ function pointIntersects(p: Point, s: Shape): boolean {
             const max_y = s.o.y + s.h * 0.5;
 
             return p.x >= min_x && p.x <= max_x && p.y >= min_y && p.y <= max_y;
+        case 'arc':
+            const p_d = distSq(p, s.o);
+            let p_t = Math.atan2(p.y - s.o.y, p.x - s.o.x);
+            if (p_t < 0) {
+                p_t += TWO_PI;
+            }
+
+            let between_angles;
+            if (s.t1 > s.t2) {
+                between_angles = p_t >= s.t1 || p_t <= s.t2;
+            } else {
+                between_angles = p_t >= s.t1 && p_t <= s.t2;
+            }
+
+            const within_radius = p_d <= s.r ** 2;
+
+            return within_radius && between_angles;
         default:
             return false;
     }
@@ -300,23 +318,189 @@ class UIRemoveButton extends UIButton {
 // UI - Wheel
 //#region
 
+class UISpokeLabel {
+    private arc: Arc;
+    private lines: Array<Line>
+    private _highlighted: boolean;
+    private _selected: boolean;
 
-class UIWheel {
-    p5: P5;
-    circle: Circle;
-    readonly strokeWeight: number;
-    readonly strokeColor: Color;
+    constructor(arc: Arc) {
+        this.arc = arc;
+        this._highlighted = false;
+        this._selected = false;
+        this.calc_lines();
+    }
+
+    private calc_lines() {
+
+        let s_a = 1.05;
+        s_a = this.highlighted ? 1.1 : s_a;
+        s_a = this.selected ? 1.2 : s_a;
+
+        let s_b = 1.15;
+        s_b = this.highlighted ? 1.2 : s_b;
+        s_b = this.selected ? 1.2 : s_b;
+
+        const a = angleBetween(this.arc.t1, this.arc.t2);
+        const label_ln1 = {
+            a: {x: Math.cos(a) * this.arc.r * s_a, y: Math.sin(a) * this.arc.r * s_a},
+            b: {x: Math.cos(a) * this.arc.r * s_b, y: Math.sin(a) * this.arc.r * s_b}
+        };
+
+        const d_x = label_ln1.b.x < 0 ? -140 : 140;
+        const label_ln2 = {
+            a: label_ln1.b,
+            b: {x: label_ln1.b.x + d_x, y:label_ln1.b.y}
+        };
+
+        this.lines = [label_ln1, label_ln2];
+
+    }
+
+    get highlighted() {
+        return this._highlighted;
+    }
+
+    set highlighted(h: boolean) {
+        this._highlighted = h;
+        this.calc_lines();
+    }
+
+    get selected() {
+        return this._selected;
+    }
+
+    set selected(h: boolean) {
+        this._selected = h;
+        this.calc_lines();
+    }
+
+    draw(p5: P5) {
+        p5.push();
+        p5.stroke(0);
+        p5.strokeWeight(1);
+        for (let l of this.lines) {
+            const dx = 0;
+            const dy = 0;
+            
+            if (this.highlighted) {
+                p5.translate(dx, dy);
+            }
+            
+            p5.line(l.a.x, l.a.y, l.b.x, l.b.y);
+        }
+        p5.pop();
+    }
+}
+
+class UISpoke extends UIElement {
+    private arc: Arc;
+    private label: UISpokeLabel;
+    private color: Color;
+
+    private _highlighted: boolean;
+    private _selected: boolean;
+
+    data: Spoke;
+
+    constructor(arc: Arc, label: string, color: Color) {
+        super();
+        this.arc = arc;
+        this._highlighted = false;
+        this._selected = false;
+
+        this.label = new UISpokeLabel(arc);
+        this.color = color;
+    }
+
+    get highlighted() {
+        return this._highlighted;
+    }
+
+    set highlighted(h: boolean) {
+        this._highlighted = h;
+        this.label.highlighted = h;
+    }
+
+    get selected() {
+        return this._selected;
+    }
+
+    set selected(s: boolean) {
+        this._selected = s;
+        this.label.selected = s;
+    }
+
+    bounds() {
+        return this.arc;
+    }
+
+    draw(p5: P5) {
+
+        const o = this.arc.o;
+        const start = this.arc.t1;
+        const end = this.arc.t2;
+
+        let dx = 0;
+        let dy = 0;
+        if (this.selected) {
+            const t = angleBetween(this.arc.t1, this.arc.t2);
+            dx = 10 * Math.cos(t);
+            dy = 10 * Math.sin(t);
+        }
+
+        let scale = this.highlighted ? 1.08 : 1;
+        scale = this.selected ? 1.12 : scale;
+
+        const d = this.arc.r * 2 * scale; 
+
+        p5.fill(p5.color(this.color));
+        p5.arc(o.x + dx, o.y + dy, d, d, start, end, p5.PIE);
+
+        this.label.draw(p5);
+    }
+}
+
+class UIWheel extends UIElement {
+    private circle: Circle;
+    private strokeWeight: number;
+    private strokeColor: Color;
+    spokes: Array<UISpoke>;
 
     data: Wheel;
 
-    constructor(c: Circle) {
-        this.circle = c;
+    constructor(circle: Circle) {
+        super();
+        this.circle = circle;
         this.strokeColor = [240,240,240];
         this.strokeWeight = 4;
     }
 
     update(data: Wheel) {
         this.data = data;
+        this.spokes = [];
+
+        const len = this.data.spokes.length;
+        for (let i = 0; i < len; i++) {
+            const spoke = this.data.spokes[i];
+            const next = this.data.spokes[(i + 1) % len];
+
+            const start = spoke.angle;
+            const end = next.angle;
+            
+            const spoke_ui = new UISpoke({
+                o: this.circle.o,
+                r: this.circle.r,
+                t1: start,
+                t2: end,
+                kind: 'arc'
+            }, spoke.name, spoke.color);
+            this.spokes.push(spoke_ui);
+        }
+    }
+
+    bounds() {
+        return this.circle;
     }
 
     draw(p5 : P5) {
@@ -324,43 +508,16 @@ class UIWheel {
 
         p5.push();
 
+        p5.translate(this.circle.o.x, this.circle.o.y);
+
         p5.stroke(p5.color(this.strokeColor));
         p5.strokeWeight(this.strokeWeight);
 
-        p5.translate(this.circle.o.x, this.circle.o.y);
-
-        const d = this.circle.r * 2; 
-        const len = this.data.spokes.length;
+        const len = this.spokes.length;
         for (let i = 0; i < len; i++) {
-            const spoke = this.data.spokes[i];
-            const next = this.data.spokes[(i + 1) % len];
-            const start = spoke.angle;
-            const end = next.angle;
 
-            p5.fill(p5.color(spoke.color));
-            p5.arc(0, 0, d, d, start, end, p5.PIE);
-
-
-            p5.push();
-            p5.stroke(0);
-            p5.strokeWeight(1);
-
-            const a = angleBetween(start, end);
-            const label_ln1 = {
-                a: {x: Math.cos(a) * this.circle.r * 1.05, y: Math.sin(a) * this.circle.r * 1.05},
-                b: {x: Math.cos(a) * this.circle.r * 1.15, y: Math.sin(a) * this.circle.r * 1.15}
-            };
-
-            const d_x = label_ln1.b.x < 0 ? -140 : 140;
-            const label_ln2 = {
-                a: label_ln1.b,
-                b: {x: label_ln1.b.x + d_x, y:label_ln1.b.y}
-            };
-
-            p5.line(label_ln1.a.x, label_ln1.a.y, label_ln1.b.x, label_ln1.b.y)
-            p5.line(label_ln2.a.x, label_ln2.a.y, label_ln2.b.x, label_ln2.b.y)
-
-            p5.pop();
+            //Check UI State: Highlighted | Selected
+            this.spokes[i].draw(p5);
         }
 
         p5.pop();
@@ -430,12 +587,23 @@ const sketch = ( p: P5 ) => {
     }
 
     p.mouseClicked = () => {
-        let mouse = centeredMouseCoords(p);
-        if (add_ui.active() && add_ui.contains(mouse)) {
+        let pointer = centeredMouseCoords(p);
+        if (add_ui.active() && add_ui.contains(pointer)) {
             const old_wheel = data;
             const new_wheel = addSpoke(old_wheel);
             data = new_wheel;
             wheel_ui.update(new_wheel);
+        }
+
+        for (let spoke_ui of wheel_ui.spokes) {
+            spoke_ui.selected = spoke_ui.contains(pointer);
+        }
+    }
+
+    p.mouseMoved = () => {
+        let pointer = centeredMouseCoords(p);
+        for (let spoke_ui of wheel_ui.spokes) {
+            spoke_ui.highlighted = spoke_ui.contains(pointer);
         }
     }
 }
