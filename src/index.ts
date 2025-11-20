@@ -4,7 +4,7 @@ const TWO_PI = Math.PI * 2;
 
 type Color = number[];
 
-interface Spoke {
+interface Wedge {
     id: string;
     name: string;
     color: Color;
@@ -12,7 +12,7 @@ interface Spoke {
 }
 
 interface Wheel {
-    spokes: Array<Spoke>;
+    wedges: Array<Wedge>;
 }
 
 /* Math */
@@ -24,6 +24,10 @@ type Circle = {o: Point, r: number, kind: 'circle'};
 type Rect = {o: Point, w: number, h: number, kind: 'rect' };
 type Arc = {o: Point, r: number, t1: number, t2: number, kind: 'arc'}
 
+function mod(a: number, n: number) {
+  return ((a % n) + n) % n;
+}
+
 function average(ns: number[]): number {
     console.assert(ns.length > 0, "Attempted to get average of zero length list.");
 
@@ -33,16 +37,26 @@ function average(ns: number[]): number {
     return total / ns.length;
 }
 
-function angleBetween(alpha: number, beta: number) {
-    let delta = beta - alpha;
-    if (delta < 0) {
-        delta += TWO_PI;
-    }
+function arcLength(alpha: number, beta: number) {
+    const delta = beta - alpha;
+    const length = delta >= 0 ? delta : delta + TWO_PI;
+    return length;
+}
 
-    const mid = alpha + (delta / 2);
-    const norm = (mid % TWO_PI + TWO_PI) % TWO_PI;
+function angleBetween(alpha: number, beta: number) {
+    let length = arcLength(alpha, beta);
+    const mid = alpha + (length / 2);
+    const norm = mod(mid, TWO_PI);
 
     return norm;
+}
+
+function angleFromPoint(p: Point, s?: Shape) {
+    let p_t = Math.atan2(p.y - s.o.y, p.x - s.o.x);
+    if (p_t < 0) {
+        p_t += TWO_PI;
+    }
+    return p_t;
 }
 
 function distSq(a: Point, b: Point) {
@@ -62,10 +76,7 @@ function pointIntersects(p: Point, s: Shape): boolean {
             return p.x >= min_x && p.x <= max_x && p.y >= min_y && p.y <= max_y;
         case 'arc':
             const p_d = distSq(p, s.o);
-            let p_t = Math.atan2(p.y - s.o.y, p.x - s.o.x);
-            if (p_t < 0) {
-                p_t += TWO_PI;
-            }
+            let p_t = angleFromPoint(p, s);
 
             let between_angles;
             if (s.t1 > s.t2) {
@@ -88,28 +99,28 @@ function pointIntersects(p: Point, s: Shape): boolean {
 //Placeholder
 
 function createWheel(): Wheel {
-    const test_spokes = [
+    const test_wedges = [
         {
             id: "1",
-            name: "spoke 1",
+            name: "wedge 1",
             color: [0,0,0],
             angle: TWO_PI * 0.7
         },
         {
             id: "2",
-            name: "spoke 2",
+            name: "wedge 2",
             color: [100,100,100],
             angle: TWO_PI * 0.25
         },
         {
             id: "3",
-            name: "spoke 3",
+            name: "wedge 3",
             color: [50,50,50],
             angle: TWO_PI * 0.45
         }
     ];
     const wheel = {
-        spokes: test_spokes.slice(0,3)
+        wedges: test_wedges.slice(0,3)
     }
     return wheel;
 }
@@ -118,16 +129,12 @@ function getWheel(): Wheel {
     return createWheel();
 }
 
-function spokeArcLengths(wheel: Wheel): number[] {
-    const lens = wheel.spokes.map((spoke, index, array) => {
-        const nextIndex = (index + 1) % array.length;
+function wedgeArcLengths(wheel: Wheel): number[] {
+    const lens = wheel.wedges.map((wedge, index, array) => {
+        const nextIndex = mod((index + 1), array.length);
         const next = array[nextIndex];
 
-        let len = next.angle - spoke.angle;
-        if (len < 0) {
-            len += TWO_PI;
-        }
-        return len;
+        return arcLength(wedge.angle, next.angle);
     });
 
     // Test - Assert
@@ -142,84 +149,116 @@ function spokeArcLengths(wheel: Wheel): number[] {
 //#endregion
 
 /* Actions */
-function addSpoke(wheel: Wheel): Wheel {
-    const arc_lens = spokeArcLengths(wheel); //Get all arc lens in radians
+function addWedge(wheel: Wheel): Wheel {
+    const arc_lens = wedgeArcLengths(wheel); //Get all arc lens in radians
     const arc_pcts = arc_lens.map(v => v / TWO_PI); //Arc lens as percent of circle
 
-    const avg_arc_pct = average(arc_pcts); //Avg lens as percent of circle -> Length of new spoke
+    const avg_arc_pct = average(arc_pcts); //Avg lens as percent of circle -> Length of new wedge
     
     const new_len = avg_arc_pct * TWO_PI; 
 
-    //Construct new spoke, to insert at end of wheel after shifting all other spokes
+    //Construct new wedge, to insert at end of wheel after shifting all other wedges
     const new_angle = 0 - (new_len * 0.5) + TWO_PI; 
     const new_id = crypto.randomUUID().toString();
     const new_gray = 255;
-    const new_spoke = {
+    const new_wedge = {
         id: new_id,
-        name: `Spoke: ${new_id}`,
+        name: `Wedge: ${new_id}`,
         color: [new_gray, new_gray, new_gray],
         angle: new_angle
     }
 
-    const new_spokes: Array<Spoke> = [new_spoke];
+    const new_wedges: Array<Wedge> = [new_wedge];
 
-    //Insert equivalent spokes for each existing, but shifted and squeezed
+    //Insert equivalent wedges for each existing, but shifted and squeezed
     const rest_len = TWO_PI - new_len;
-    let current_a = new_len * 0.5; //Start at end of new spoke
+    let current_a = new_len * 0.5; //Start at end of new wedge
     for (let i = 0; i < arc_pcts.length; i ++) {
-        const old_spoke = wheel.spokes[i];
-        const spoke: Spoke = {
-            id: old_spoke.id,
-            name: old_spoke.name,
-            color: old_spoke.color,
+        const old_wedge = wheel.wedges[i];
+        const wedge: Wedge = {
+            id: old_wedge.id,
+            name: old_wedge.name,
+            color: old_wedge.color,
             angle: current_a
         }
-        new_spokes.push(spoke);
+        new_wedges.push(wedge);
 
         current_a += arc_pcts[i] * rest_len; //Move a proportional to the remainder of the wheel
     }
 
     return {
-        spokes: new_spokes
+        wedges: new_wedges
     }
 }
 
-function removeSpoke(wheel: Wheel, id: string): Wheel {
+function removeWedge(wheel: Wheel, id: string): Wheel {
 
     //ix = index to remove
-    const ix = wheel.spokes.findIndex(spoke => spoke.id === id);
+    const ix = wheel.wedges.findIndex(wedge => wedge.id === id);
 
-    const arc_lens = spokeArcLengths(wheel); //Get all arc lens in radians
+    const arc_lens = wedgeArcLengths(wheel); //Get all arc lens in radians
     const removed_len = arc_lens[ix]; 
     const remainder_total = TWO_PI - removed_len; 
      
     const arc_pcts = arc_lens.map(v => v / remainder_total); //Arc lens as percent of remaining circle
 
-    const new_spokes: Array<Spoke> = [];
+    const new_wedges: Array<Wedge> = [];
 
     //Actually start looping after the index to remove and wrap around
-    let current_t = wheel.spokes[ix].angle;
+    let current_t = wheel.wedges[ix].angle;
     for (let a = 1; a < arc_pcts.length; a ++) {
-        const i = (ix + a) % arc_pcts.length; 
+        const i = mod((ix + a), arc_pcts.length); 
 
-        const old_spoke = wheel.spokes[i];
-        const spoke: Spoke = {
-            id: old_spoke.id,
-            name: old_spoke.name,
-            color: old_spoke.color,
+        const old_wedge = wheel.wedges[i];
+        const wedge: Wedge = {
+            id: old_wedge.id,
+            name: old_wedge.name,
+            color: old_wedge.color,
             angle: current_t
         }
-        new_spokes.push(spoke);
+        new_wedges.push(wedge);
 
         current_t += (arc_pcts[i] * TWO_PI); //Move proportional to the entire wheel
-        current_t = current_t % TWO_PI;
+        current_t = mod(current_t, TWO_PI);
     }
 
     return {
-        spokes: new_spokes
+        wedges: new_wedges
     };
 }
 
+function moveWedgeFwd(wheel: Wheel, id: string): Wheel {
+
+    const i = wheel.wedges.findIndex(w => w.id === id);
+    const j = (i + 1) % wheel.wedges.length;
+    const k = (j + 1) % wheel.wedges.length;
+
+    const current = wheel.wedges[i];
+    const next = wheel.wedges[j];
+    const following = wheel.wedges[k];
+
+    const next_len = arcLength(next.angle, following.angle);
+
+    next.angle = current.angle;
+    current.angle = mod(current.angle + next_len, TWO_PI);
+
+    const newWedges = [...wheel.wedges];
+    [newWedges[i], newWedges[j]] = [newWedges[j], newWedges[i]];
+    console.log(wheel.wedges, newWedges);
+    return {
+        wedges: newWedges
+    };
+}
+
+
+function moveWedgeBwd(wheel: Wheel, id: string): Wheel {
+
+    const i = wheel.wedges.findIndex(w => w.id === id);
+    const h = mod(i - 1, wheel.wedges.length);
+    console.log(h);
+
+    return moveWedgeFwd(wheel, wheel.wedges[h].id);
+}
 
 /* UI Elements */
 abstract class UIElement {
@@ -361,7 +400,7 @@ class UIRemoveButton extends UIButton {
 // UI - Wheel
 //#region
 
-class UISpokeLabel {
+class UIWedgeLabel {
     private arc: Arc;
     private lines: Array<Line>
     private label: string;
@@ -422,7 +461,7 @@ class UISpokeLabel {
 
     draw(p5: P5) {
         p5.push();
-        p5.stroke(0);
+        p5.stroke(40,40,40);
         p5.strokeWeight(1);
         for (let l of this.lines) {
             const dx = 0;
@@ -438,7 +477,7 @@ class UISpokeLabel {
         const p = this.lines[1].a;
         const padding = 10;
         p5.textSize(16);
-        p5.fill(0);
+        p5.fill(40,40,40);
         if (p.x < 0) {
             p5.textAlign(p5.RIGHT);
             p5.text(this.label, p.x - padding, p.y - padding);
@@ -450,23 +489,30 @@ class UISpokeLabel {
     }
 }
 
-class UISpoke extends UIElement {
+class UIWedge extends UIElement {
     private arc: Arc;
-    private label: UISpokeLabel;
+    private label: UIWedgeLabel;
     private color: Color;
 
     private _highlighted: boolean;
     private _selected: boolean;
+
+    private _dragging: boolean;
+    private _dragStart: Point;
+    private _dragArc: Arc;
 
     id: string;
 
     constructor(arc: Arc, label: string, color: Color, id: string) {
         super();
         this.arc = arc;
+        this._dragArc = { ...arc };
+
         this._highlighted = false;
         this._selected = false;
+        this._dragging = false;
 
-        this.label = new UISpokeLabel(arc, label);
+        this.label = new UIWedgeLabel(arc, label);
         this.color = color;
         this.id = id;
     }
@@ -495,14 +541,15 @@ class UISpoke extends UIElement {
 
     draw(p5: P5) {
 
-        const o = this.arc.o;
-        const start = this.arc.t1;
-        const end = this.arc.t2;
+        const arc = this._dragging ? this._dragArc : this.arc;
+        const o = arc.o;
+        const start = arc.t1;
+        const end = arc.t2;
 
         let dx = 0;
         let dy = 0;
         if (this.selected) {
-            const t = angleBetween(this.arc.t1, this.arc.t2);
+            const t = angleBetween(arc.t1, arc.t2);
             dx = 10 * Math.cos(t);
             dy = 10 * Math.sin(t);
         }
@@ -510,20 +557,41 @@ class UISpoke extends UIElement {
         let scale = this.highlighted ? 1.08 : 1;
         scale = this.selected ? 1.12 : scale;
 
-        const d = this.arc.r * 2 * scale; 
+        const d = arc.r * 2 * scale; 
 
         p5.fill(p5.color(this.color));
         p5.arc(o.x + dx, o.y + dy, d, d, start, end, p5.PIE);
 
         this.label.draw(p5);
     }
+
+    startDrag(p: Point) {
+        this._dragging = true;
+        this._dragStart = p;
+    }
+
+    drag(current: Point) {
+        if (!this._dragging) return;
+
+        let init_t = angleFromPoint(this._dragStart, this.arc);
+        let curr_t = angleFromPoint(current, this.arc);
+        let delta = curr_t - init_t;
+
+        this._dragArc.t1 = this.arc.t1 + delta;
+        this._dragArc.t2 = this.arc.t2 + delta;
+    }
+
+    stopDrag() {
+        this._dragging = false;
+    }
+
 }
 
 class UIWheel extends UIElement {
     private circle: Circle;
     private strokeWeight: number;
     private strokeColor: Color;
-    spokes: Array<UISpoke>;
+    wedges: Array<UIWedge>;
 
     data: Wheel;
 
@@ -534,27 +602,31 @@ class UIWheel extends UIElement {
         this.strokeWeight = 4;
     }
 
-    update(data: Wheel) {
-        this.data = data;
-        this.spokes = [];
+    private refresh(data: Wheel) {
+        this.wedges = [];
 
-        const len = this.data.spokes.length;
+        const len = data.wedges.length;
         for (let i = 0; i < len; i++) {
-            const spoke = this.data.spokes[i];
-            const next = this.data.spokes[(i + 1) % len];
+            const wedge = data.wedges[i];
+            const next = data.wedges[(i + 1) % len];
 
-            const start = spoke.angle;
+            const start = wedge.angle;
             const end = next.angle;
             
-            const spoke_ui = new UISpoke({
+            const wedge_ui = new UIWedge({
                 o: this.circle.o,
                 r: this.circle.r,
                 t1: start,
                 t2: end,
                 kind: 'arc'
-            }, spoke.name, spoke.color, spoke.id);
-            this.spokes.push(spoke_ui);
+            }, wedge.name, wedge.color, wedge.id);
+            this.wedges.push(wedge_ui);
         }
+    }
+
+    update(data: Wheel) {
+        this.data = data;
+        this.refresh(this.data);
     }
 
     bounds() {
@@ -571,11 +643,11 @@ class UIWheel extends UIElement {
         p5.stroke(p5.color(this.strokeColor));
         p5.strokeWeight(this.strokeWeight);
 
-        const len = this.spokes.length;
+        const len = this.wedges.length;
         for (let i = 0; i < len; i++) {
 
             //Check UI State: Highlighted | Selected
-            this.spokes[i].draw(p5);
+            this.wedges[i].draw(p5);
         }
 
         p5.pop();
@@ -599,7 +671,8 @@ const sketch = ( p: P5 ) => {
     let wheel_ui: UIWheel;
 
     let data: Wheel;
-    let selected: UISpoke;
+    let selected: UIWedge;
+    let dragging: UIWedge;
 
     function setupUI() {
         
@@ -659,19 +732,22 @@ const sketch = ( p: P5 ) => {
         let pointer = centeredMouseCoords(p);
 
         if (add_ui.active && add_ui.contains(pointer)) {
-            updateData(addSpoke(data));
+            updateData(addWedge(data));
         }
 
         if (remove_ui.active && remove_ui.contains(pointer)) {
-           updateData(removeSpoke(data, selected.id));
+           updateData(removeWedge(data, selected.id));
         }
 
-        for (let spoke_ui of wheel_ui.spokes) {
-            spoke_ui.selected = spoke_ui.contains(pointer);
-            if (spoke_ui.selected) {
+        for (let wedge_ui of wheel_ui.wedges) {
+            wedge_ui.selected = wedge_ui.contains(pointer);
+            if (wedge_ui.selected) {
                 add_ui.active = false;
                 remove_ui.active = true;
-                selected = spoke_ui;
+                selected = wedge_ui;
+
+                //Testing
+                updateData(moveWedgeBwd(data, selected.id));
             }
         }
 
@@ -683,9 +759,33 @@ const sketch = ( p: P5 ) => {
 
     p.mouseMoved = () => {
         let pointer = centeredMouseCoords(p);
-        for (let spoke_ui of wheel_ui.spokes) {
-            spoke_ui.highlighted = spoke_ui.contains(pointer);
+        for (let wedge_ui of wheel_ui.wedges) {
+            wedge_ui.highlighted = wedge_ui.contains(pointer);
         }
+    }
+
+    p.mousePressed = () => {
+        const pointer = centeredMouseCoords(p);
+        if (wheel_ui.contains(pointer)) {
+            for (let wedge_ui of wheel_ui.wedges) {
+                if (wedge_ui.contains(pointer)) {
+                    wedge_ui.startDrag(pointer);
+                    dragging = wedge_ui;
+                }
+            }
+        }
+    }
+
+    p.mouseDragged = () => {
+        const pointer = centeredMouseCoords(p);
+        if (dragging) {
+            dragging.drag(pointer);
+        }
+    }
+
+    p.mouseReleased = () => {
+        dragging = null;
+        setupUI(); //Temporary crude refresh
     }
 }
 
