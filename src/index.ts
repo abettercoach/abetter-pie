@@ -134,7 +134,6 @@ function spokeArcLengths(wheel: Wheel): number[] {
     const sum = lens.reduce((acc, val) =>{
         return acc + val;
     }, 0);
-    console.log(sum, TWO_PI - sum);
     console.assert(sum == TWO_PI, "Sum of all arc lens not equal to two pi!");
 
     return lens;
@@ -185,6 +184,42 @@ function addSpoke(wheel: Wheel): Wheel {
     }
 }
 
+function removeSpoke(wheel: Wheel, id: string): Wheel {
+
+    //ix = index to remove
+    const ix = wheel.spokes.findIndex(spoke => spoke.id === id);
+
+    const arc_lens = spokeArcLengths(wheel); //Get all arc lens in radians
+    const removed_len = arc_lens[ix]; 
+    const remainder_total = TWO_PI - removed_len; 
+     
+    const arc_pcts = arc_lens.map(v => v / remainder_total); //Arc lens as percent of remaining circle
+
+    const new_spokes: Array<Spoke> = [];
+
+    //Actually start looping after the index to remove and wrap around
+    let current_t = wheel.spokes[ix].angle;
+    for (let a = 1; a < arc_pcts.length; a ++) {
+        const i = (ix + a) % arc_pcts.length; 
+
+        const old_spoke = wheel.spokes[i];
+        const spoke: Spoke = {
+            id: old_spoke.id,
+            name: old_spoke.name,
+            color: old_spoke.color,
+            angle: current_t
+        }
+        new_spokes.push(spoke);
+
+        current_t += (arc_pcts[i] * TWO_PI); //Move proportional to the entire wheel
+        current_t = current_t % TWO_PI;
+    }
+
+    return {
+        spokes: new_spokes
+    };
+}
+
 
 /* UI Elements */
 abstract class UIElement {
@@ -197,8 +232,12 @@ abstract class UIElement {
 
     abstract bounds(): Shape;
 
-    active(): boolean {
+    get active(): boolean {
         return this._active;
+    }
+
+    set active(val: boolean) {
+        this._active = val;
     }
 
     contains(mouse: Point): boolean {
@@ -264,6 +303,8 @@ class UIAddButton extends UIButton {
     }
 
     draw(p5: P5) {
+        if (!this.active) return;
+
         let mouse = centeredMouseCoords(p5);
         const c = this.contains(mouse) ? this.hoverColor : this.color;
         p5.stroke(c);
@@ -303,6 +344,8 @@ class UIRemoveButton extends UIButton {
     }
 
     draw(p5: P5) {
+        if (!this.active) return;
+
         let mouse = centeredMouseCoords(p5);
         const c = this.contains(mouse) ? this.hoverColor : this.color;
         p5.stroke(c);
@@ -401,9 +444,9 @@ class UISpoke extends UIElement {
     private _highlighted: boolean;
     private _selected: boolean;
 
-    data: Spoke;
+    id: string;
 
-    constructor(arc: Arc, label: string, color: Color) {
+    constructor(arc: Arc, label: string, color: Color, id: string) {
         super();
         this.arc = arc;
         this._highlighted = false;
@@ -411,6 +454,7 @@ class UISpoke extends UIElement {
 
         this.label = new UISpokeLabel(arc);
         this.color = color;
+        this.id = id;
     }
 
     get highlighted() {
@@ -494,7 +538,7 @@ class UIWheel extends UIElement {
                 t1: start,
                 t2: end,
                 kind: 'arc'
-            }, spoke.name, spoke.color);
+            }, spoke.name, spoke.color, spoke.id);
             this.spokes.push(spoke_ui);
         }
     }
@@ -537,23 +581,32 @@ function centeredMouseCoords(p5: P5) {
 /* P5 Setup */
 const sketch = ( p: P5 ) => {
     let add_ui: UIButton;
+    let remove_ui: UIButton;
     let wheel_ui: UIWheel;
 
     let data: Wheel;
+    let selected: UISpoke;
 
     function setupUI() {
         
-        const add_button_bounds: Rect = {
+        const corner_button_bounds: Rect = {
             o: { x: (p.width * 0.5) * 0.8, y: (p.height * 0.5) * 0.8 },
             w: 40,
             h: 40,
             kind: 'rect'
         }
-        add_ui = new UIAddButton(add_button_bounds);
+        add_ui = new UIAddButton(corner_button_bounds);
+        remove_ui = new UIRemoveButton(corner_button_bounds);
+        remove_ui.active = false;
 
         const wheel_circle: Circle = {o: {x: 0, y: 0}, r: p.height * 0.4, kind: 'circle'};
         wheel_ui = new UIWheel(wheel_circle);
-        wheel_ui.update(data);
+        updateData(data);
+    }
+
+    function updateData(d: Wheel) {
+        data = d;
+        wheel_ui.update(d);
     }
 
     p.windowResized = () => {
@@ -581,6 +634,8 @@ const sketch = ( p: P5 ) => {
         p.translate( p.width * 0.5, p.height * 0.5);
         
         add_ui.draw(p);
+        remove_ui.draw(p);
+
         wheel_ui.draw(p);
 
         p.pop();
@@ -588,15 +643,27 @@ const sketch = ( p: P5 ) => {
 
     p.mouseClicked = () => {
         let pointer = centeredMouseCoords(p);
-        if (add_ui.active() && add_ui.contains(pointer)) {
-            const old_wheel = data;
-            const new_wheel = addSpoke(old_wheel);
-            data = new_wheel;
-            wheel_ui.update(new_wheel);
+
+        if (add_ui.active && add_ui.contains(pointer)) {
+            updateData(addSpoke(data));
+        }
+
+        if (remove_ui.active && remove_ui.contains(pointer)) {
+           updateData(removeSpoke(data, selected.id));
         }
 
         for (let spoke_ui of wheel_ui.spokes) {
             spoke_ui.selected = spoke_ui.contains(pointer);
+            if (spoke_ui.selected) {
+                add_ui.active = false;
+                remove_ui.active = true;
+                selected = spoke_ui;
+            }
+        }
+
+        if (!wheel_ui.contains(pointer)) {
+            add_ui.active = true;
+            remove_ui.active = false;
         }
     }
 
