@@ -137,12 +137,6 @@ function wedgeArcLengths(wheel: Wheel): number[] {
         return arcLength(wedge.angle, next.angle);
     });
 
-    // Test - Assert
-    const sum = lens.reduce((acc, val) =>{
-        return acc + val;
-    }, 0);
-    console.assert(sum == TWO_PI, "Sum of all arc lens not equal to two pi!");
-
     return lens;
 }
 
@@ -170,7 +164,7 @@ function addWedge(wheel: Wheel): Wheel {
 
     const new_wedges: Array<Wedge> = [new_wedge];
 
-    //Insert equivalent wedges for each existing, but shifted and squeezed
+    //Insert equivalent wedges for each existing, but shifted and squeezed (displaced)
     const rest_len = TWO_PI - new_len;
     let current_a = new_len * 0.5; //Start at end of new wedge
     for (let i = 0; i < arc_pcts.length; i ++) {
@@ -239,23 +233,28 @@ function moveWedgeFwd(wheel: Wheel, id: string): Wheel {
 
     const next_len = arcLength(next.angle, following.angle);
 
-    next.angle = current.angle;
-    current.angle = mod(current.angle + next_len, TWO_PI);
+    const next_angle = current.angle;
+    const curr_angle = mod(current.angle + next_len, TWO_PI);
 
-    const newWedges = [...wheel.wedges];
+    const newWedges = [];
+    
+    for (let w of wheel.wedges) {
+        let newWedge: Wedge = structuredClone(w);
+        newWedges.push(newWedge);
+    }
+    newWedges[i].angle = curr_angle;
+    newWedges[j].angle = next_angle;
+
     [newWedges[i], newWedges[j]] = [newWedges[j], newWedges[i]];
-    console.log(wheel.wedges, newWedges);
     return {
         wedges: newWedges
     };
 }
 
-
 function moveWedgeBwd(wheel: Wheel, id: string): Wheel {
 
     const i = wheel.wedges.findIndex(w => w.id === id);
     const h = mod(i - 1, wheel.wedges.length);
-    console.log(h);
 
     return moveWedgeFwd(wheel, wheel.wedges[h].id);
 }
@@ -491,39 +490,31 @@ class UIWedgeLabel {
 
 class UIWedge extends UIElement {
     private arc: Arc;
-    private label: UIWedgeLabel;
-    private color: Color;
 
     private _highlighted: boolean;
     private _selected: boolean;
 
-    private _dragging: boolean;
-    private _dragStart: Point;
-    private _dragArc: Arc;
+    color: Color;
 
     id: string;
 
-    constructor(arc: Arc, label: string, color: Color, id: string) {
+    constructor(arc: Arc, color: Color) {
         super();
+
         this.arc = arc;
-        this._dragArc = { ...arc };
 
         this._highlighted = false;
         this._selected = false;
-        this._dragging = false;
 
-        this.label = new UIWedgeLabel(arc, label);
         this.color = color;
-        this.id = id;
     }
 
-    get highlighted() {
+    public get highlighted() {
         return this._highlighted;
     }
 
-    set highlighted(h: boolean) {
-        this._highlighted = h;
-        this.label.highlighted = h;
+    public set highlighted(b: boolean) {
+        this._highlighted = b;
     }
 
     get selected() {
@@ -532,7 +523,6 @@ class UIWedge extends UIElement {
 
     set selected(s: boolean) {
         this._selected = s;
-        this.label.selected = s;
     }
 
     bounds() {
@@ -541,7 +531,9 @@ class UIWedge extends UIElement {
 
     draw(p5: P5) {
 
-        const arc = this._dragging ? this._dragArc : this.arc;
+        if (!this.active) return;
+
+        const arc = this.arc;
         const o = arc.o;
         const start = arc.t1;
         const end = arc.t2;
@@ -561,39 +553,75 @@ class UIWedge extends UIElement {
 
         p5.fill(p5.color(this.color));
         p5.arc(o.x + dx, o.y + dy, d, d, start, end, p5.PIE);
+    }
+}
+
+class UIWheelWedge extends UIWedge {
+    
+    private label: UIWedgeLabel;
+
+    constructor(data: Wheel, wedge_id: string, circle: Circle) {
+    
+        const i = data.wedges.findIndex(w => w.id === wedge_id);
+        const j = mod(i + 1, data.wedges.length);
+        
+        const start = data.wedges[i].angle;
+        const end = data.wedges[j].angle;
+
+        const arc: Arc = {
+            o: circle.o,
+            r: circle.r,
+            t1: start,
+            t2: end,
+            kind: 'arc'
+        }
+        
+        super(arc, data.wedges[i].color);
+
+        this.id = wedge_id;
+
+        this.label = new UIWedgeLabel(arc, data.wedges[i].name);
+    }
+
+    set highlighted(b: boolean) {
+        super.highlighted = b;
+        this.label.highlighted = b;
+    }
+
+    get highlighted() {
+        return super.highlighted;
+    }
+
+
+    set selected(b: boolean) {
+        super.selected = b;
+        this.label.selected = b;
+    }
+
+    get selected() {
+        return super.selected;
+    }
+
+
+    draw(p5: P5) {
+        super.draw(p5);
 
         this.label.draw(p5);
     }
-
-    startDrag(p: Point) {
-        this._dragging = true;
-        this._dragStart = p;
-    }
-
-    drag(current: Point) {
-        if (!this._dragging) return;
-
-        let init_t = angleFromPoint(this._dragStart, this.arc);
-        let curr_t = angleFromPoint(current, this.arc);
-        let delta = curr_t - init_t;
-
-        this._dragArc.t1 = this.arc.t1 + delta;
-        this._dragArc.t2 = this.arc.t2 + delta;
-    }
-
-    stopDrag() {
-        this._dragging = false;
-    }
-
 }
 
 class UIWheel extends UIElement {
     private circle: Circle;
     private strokeWeight: number;
     private strokeColor: Color;
-    wedges: Array<UIWedge>;
 
-    data: Wheel;
+    private wedges: Array<UIWheelWedge>;
+
+    private _dragging: boolean;
+    private _dragLast: Point;
+    private _dragId: string;
+    private _dragOffset: number;
+    private _dragUI: UIWedge;
 
     constructor(circle: Circle) {
         super();
@@ -602,31 +630,15 @@ class UIWheel extends UIElement {
         this.strokeWeight = 4;
     }
 
-    private refresh(data: Wheel) {
+    refresh(data: Wheel) {
         this.wedges = [];
 
         const len = data.wedges.length;
         for (let i = 0; i < len; i++) {
             const wedge = data.wedges[i];
-            const next = data.wedges[(i + 1) % len];
-
-            const start = wedge.angle;
-            const end = next.angle;
-            
-            const wedge_ui = new UIWedge({
-                o: this.circle.o,
-                r: this.circle.r,
-                t1: start,
-                t2: end,
-                kind: 'arc'
-            }, wedge.name, wedge.color, wedge.id);
+            const wedge_ui = new UIWheelWedge(data, wedge.id, this.circle);
             this.wedges.push(wedge_ui);
         }
-    }
-
-    update(data: Wheel) {
-        this.data = data;
-        this.refresh(this.data);
     }
 
     bounds() {
@@ -650,10 +662,119 @@ class UIWheel extends UIElement {
             this.wedges[i].draw(p5);
         }
 
+        if (this._dragging && this._dragUI) {
+            p5.push();
+            p5.strokeWeight(0);
+            this._dragUI.draw(p5);
+            p5.pop();
+        }
+
         p5.pop();
     }
+
+    select(pointer: Point): UIWedge {
+        
+        let h;
+        for (let w of this.wedges) {
+            w.selected = w.contains(pointer);
+            if (w.selected) {
+                h = w;   
+            }
+        }
+
+        return h;
+    }
+
+    highlight(pointer: Point): UIWedge {
+        
+        let h;
+        for (let w of this.wedges) {
+            w.highlighted = w.contains(pointer);
+            if (w.highlighted) {
+                h = w;   
+            }
+        }
+
+        return h;
+    }
+
+    startDrag(p: Point) {
+        this._dragging = true;
+        this._dragLast = p;
+
+        for (let wedge_ui of this.wedges) {
+            if (wedge_ui.contains(p)) {
+                this._dragId = wedge_ui.id;
+                wedge_ui.active = false;
+
+                this._dragUI = new UIWedge(wedge_ui.bounds(), [...wedge_ui.color,200]);
+                this._dragUI.selected = true;
+                
+                const mid = angleBetween(wedge_ui.bounds().t1, wedge_ui.bounds().t2);
+                this._dragOffset = mid - angleFromPoint(p, this.circle);
+            }
+        }
+    }
+
+    drag(current: Point, cb: (id: string, dir: 'cw' | 'ccw') => void) {
+        if (!this._dragging) return;
+
+        const last = this._dragLast;
+        const curr = current;
+
+        const curr_i = this.wedges.findIndex(w => w.id === this._dragId);
+        
+        const a = this._dragOffset + angleFromPoint(last, this.circle);
+        const b = this._dragOffset + angleFromPoint(curr, this.circle);
+        
+        let delta = b - a;
+        if (delta === 0) return;
+        const dir = Math.sign(delta) >= 0 ? 'cw' : 'ccw';
+
+        // Calculating angles for the floating wedge
+        const og_wedge = this.wedges[curr_i];
+        const og_arc = og_wedge.bounds();
+
+        const drag_arc = {...og_arc};
+        const drag_len = arcLength(og_arc.t1, og_arc.t2);
+        drag_arc.t1 = mod(b - drag_len * 0.5, TWO_PI);
+        drag_arc.t2 = mod(b + drag_len * 0.5, TWO_PI);
+
+        this._dragUI = new UIWedge(drag_arc, [...og_wedge.color, 200]);
+        this._dragUI.selected = true;
+
+        // Check if crossed next or previous wedge's midpoint
+        const l = this.wedges.length;
+        const next_i = mod(curr_i + Math.sign(delta), l);
+        const next_arc = this.wedges[next_i].bounds();
+
+        const next_mid = angleBetween(next_arc.t1, next_arc.t2);
+
+        //const comp = angleBetween(Math.min(a,b), Math.max(a,b));
+        const comp = dir == 'cw' ? drag_arc.t2 : drag_arc.t1;
+        console.log(dir, comp, next_mid);
+
+        //TODO: make more precise by writing function that actually checks if an angle
+        //is between two other angles.
+        const near = Math.abs(next_mid - comp) <= 0.1; 
+
+        if (near) {
+            cb(this._dragId, dir);
+        }
+
+        og_wedge.active = false;
+        this._dragLast = curr;
+    }
+
+    stopDrag() {
+        if (!this._dragging) return;
+
+        this._dragging = false;
+        const og_wedge = this.wedges.find(w => w.id === this._dragId);
+
+        og_wedge.active = true;
+    }
 }
-//#endregion
 
 /* UI - Helper Functions */
 function centeredMouseCoords(p5: P5) {
@@ -672,7 +793,6 @@ const sketch = ( p: P5 ) => {
 
     let data: Wheel;
     let selected: UIWedge;
-    let dragging: UIWedge;
 
     function setupUI() {
         
@@ -689,11 +809,13 @@ const sketch = ( p: P5 ) => {
         const wheel_circle: Circle = {o: {x: 0, y: 0}, r: p.height * 0.4, kind: 'circle'};
         wheel_ui = new UIWheel(wheel_circle);
         updateData(data);
+
     }
 
     function updateData(d: Wheel) {
+        console.log(data, d);
         data = d;
-        wheel_ui.update(d);
+        wheel_ui.refresh(d);
     }
 
     p.windowResized = () => {
@@ -710,6 +832,15 @@ const sketch = ( p: P5 ) => {
         
         // UI
         setupUI();
+
+        //Testing
+        let circle: Circle = {o: {x: 0, y:0}, r: 100, kind:`circle`};
+        let p1 = {x: 50, y:-50};
+        let p2 = {x: 50, y:50};
+        let t1 = angleFromPoint(p1, circle);
+        let t2 = angleFromPoint(p2, circle);
+        console.log(`Point: ${p1}, Angle: ${(t1/TWO_PI)*360}`);
+        console.log(`Point: ${p2}, Angle: ${(t2/TWO_PI)*360}`);
     }
 
     p.draw = () => {
@@ -739,19 +870,11 @@ const sketch = ( p: P5 ) => {
            updateData(removeWedge(data, selected.id));
         }
 
-        for (let wedge_ui of wheel_ui.wedges) {
-            wedge_ui.selected = wedge_ui.contains(pointer);
-            if (wedge_ui.selected) {
-                add_ui.active = false;
-                remove_ui.active = true;
-                selected = wedge_ui;
-
-                //Testing
-                updateData(moveWedgeBwd(data, selected.id));
-            }
-        }
-
-        if (!wheel_ui.contains(pointer)) {
+        selected = wheel_ui.select(pointer);
+        if (selected) {
+            add_ui.active = false;
+            remove_ui.active = true;
+        } else {
             add_ui.active = true;
             remove_ui.active = false;
         }
@@ -759,33 +882,40 @@ const sketch = ( p: P5 ) => {
 
     p.mouseMoved = () => {
         let pointer = centeredMouseCoords(p);
-        for (let wedge_ui of wheel_ui.wedges) {
-            wedge_ui.highlighted = wedge_ui.contains(pointer);
-        }
+
+        wheel_ui.highlight(pointer);
     }
 
     p.mousePressed = () => {
         const pointer = centeredMouseCoords(p);
+        
         if (wheel_ui.contains(pointer)) {
-            for (let wedge_ui of wheel_ui.wedges) {
-                if (wedge_ui.contains(pointer)) {
-                    wedge_ui.startDrag(pointer);
-                    dragging = wedge_ui;
-                }
-            }
+            wheel_ui.startDrag(pointer);
         }
     }
 
     p.mouseDragged = () => {
         const pointer = centeredMouseCoords(p);
-        if (dragging) {
-            dragging.drag(pointer);
+
+        wheel_ui.drag(pointer, (id: string, dir: 'cw' | 'ccw') => {
+            switch (dir) {
+                case 'cw':
+                   updateData(moveWedgeFwd(data, id));
+                   break;
+                default:
+                   updateData(moveWedgeBwd(data, id));
+                   break;
+            }
+        });
+
+        if (selected) {
+            selected.selected = false;
+            selected = null;
         }
     }
 
     p.mouseReleased = () => {
-        dragging = null;
-        setupUI(); //Temporary crude refresh
+        wheel_ui.stopDrag();
     }
 }
 
