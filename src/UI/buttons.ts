@@ -8,19 +8,10 @@ import { Rect, Line } from "../util";
 //#region
 export abstract class UIButton extends UIElement {
     private _bounds: Rect;
-    private _hovering: boolean;
 
     constructor(b: Rect) {
         super();
         this._bounds = b;
-    }
-
-    public get hovering() {
-        return this._hovering;
-    }
-
-    public set hovering(b: boolean) {
-        this._hovering = b;
     }
 
     bounds() {

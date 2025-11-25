@@ -56,13 +56,52 @@ const sketch = ( p: P5 ) => {
             w: 40,
             h: 40,
             kind: 'rect'
-        }
+        };
+
         add_ui = new UIAddButton(corner_button_bounds);
+        add_ui.onClick = () => {
+            data.addWedge();
+            wheel_ui.refresh(data);
+        };
+
         remove_ui = new UIRemoveButton(corner_button_bounds);
         remove_ui.active = false;
+        remove_ui.onClick = () => {
+            data.removeWedge(selected.id);
+            wheel_ui.refresh(data);
+        };
 
         const wheel_circle: Circle = {o: {x: 0, y: 0}, r: p.height * 0.4, kind: 'circle'};
         wheel_ui = new UIWheel(wheel_circle);
+        wheel_ui.onSelect = (selected: boolean) => {
+            if (selected) {
+                add_ui.active = false;
+                remove_ui.active = true;
+            } else {
+                add_ui.active = true;
+                remove_ui.active = false;
+            }
+        };
+
+        wheel_ui.onWedgeDrag = (id: string, dir: 'cw' | 'ccw') => {
+            switch (dir) {
+                case 'cw':
+                    data.moveWedgeFwd(id);
+                   break;
+                default:
+                    data.moveWedgeBwd(id);
+                   break;
+            }
+
+            wheel_ui.refresh(data);
+        };
+
+        wheel_ui.onScale = (id: string, size: number) => {
+            data.scaleWedge(id, size);
+            wheel_ui.refresh(data);
+        };
+
+
         wheel_ui.refresh(data);
 
     }
@@ -111,67 +150,33 @@ const sketch = ( p: P5 ) => {
     p.mouseClicked = () => {
         let pointer = centeredMouseCoords(p);
 
-        if (add_ui.active && add_ui.contains(pointer)) {
-            data.addWedge();
-            wheel_ui.refresh(data);
-        }
+        add_ui.mouseClicked(pointer);
+        remove_ui.mouseClicked(pointer);
+        wheel_ui.mouseClicked(pointer);
 
-        if (remove_ui.active && remove_ui.contains(pointer)) {
-            data.removeWedge(selected.id);
-            wheel_ui.refresh(data);
-        }
-
-        selected = wheel_ui.select(pointer);
-        if (selected) {
-            add_ui.active = false;
-            remove_ui.active = true;
-        } else {
-            add_ui.active = true;
-            remove_ui.active = false;
-        }
     }
 
     p.mouseMoved = () => {
         let pointer = centeredMouseCoords(p);
 
-        wheel_ui.highlight(pointer);
-
-        add_ui.hovering = add_ui.contains(pointer);
-        remove_ui.hovering = remove_ui.contains(pointer);
+        wheel_ui.mouseMoved(pointer);
+        add_ui.mouseMoved(pointer);
+        remove_ui.mouseMoved(pointer);
     }
 
     p.mousePressed = () => {
         const pointer = centeredMouseCoords(p);
 
-        if (wheel_ui.contains(pointer)) {
-            wheel_ui.startDrag(pointer);
-        }
+        wheel_ui.mousePressed(pointer);
     }
 
     p.mouseDragged = () => {
         const pointer = centeredMouseCoords(p);
 
-        wheel_ui.drag(pointer, (id: string, dir: 'cw' | 'ccw') => {
-            switch (dir) {
-                case 'cw':
-                    data.moveWedgeFwd(id);
-                   break;
-                default:
-                    data.moveWedgeBwd(id);
-                   break;
-            }
-
-            wheel_ui.refresh(data);
-        });
-
-        if (selected) {
-            selected.selected = false;
-            selected = null;
-        }
+        wheel_ui.mouseDragged(pointer);
     }
 
     p.mouseReleased = () => {
-        wheel_ui.stopDrag();
     }
 }
 

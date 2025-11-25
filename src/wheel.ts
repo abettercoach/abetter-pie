@@ -21,10 +21,13 @@ export class Wheel {
     }
 
     wedgeArcLengths(): number[] {
+        console.log("wedgeArcLengths");
         const lens = this.wedges.map((wedge, index, array) => {
             const nextIndex = mod((index + 1), array.length);
             const next = array[nextIndex];
 
+            console.log(wedge.angle, next.angle);
+            console.log(util.arcLength(wedge.angle, next.angle));
             return util.arcLength(wedge.angle, next.angle);
         });
 
@@ -139,6 +142,37 @@ export class Wheel {
         const h = mod(i - 1, this.wedges.length);
     
         this.moveWedgeFwd(this.wedges[h].id);
+    }
+
+    scaleWedge(id: string, size: number) {
+
+        const lens = this.wedgeArcLengths();
+        // console.log(lens);
+        // console.log(this.wedges[0], this.wedges[1]);
+
+        let i = this.wedges.findIndex(w => w.id === id);
+
+        let arc_len = lens[i];
+
+        const og_rest_len = TWO_PI - arc_len;
+        const rest_len = TWO_PI - size;
+
+        const mid = mod(this.wedges[i].angle + arc_len * 0.5, TWO_PI);
+        console.log(`mid: ${mid}, size: ${size}`);
+
+        this.wedges[i].angle = mod(mid - size * 0.5, TWO_PI);
+
+        let last = mod(mid + size * 0.5, TWO_PI);
+
+        console.log(`a: ${this.wedges[i].angle}, b: ${last}`);
+
+        for (let c = 1 ; c < this.wedges.length; c++) {
+            let j = mod(i + c, this.wedges.length);
+            this.wedges[j].angle = mod(last, TWO_PI);     
+            // last = last + lens[j];       
+            last = last + (lens[j] / og_rest_len) * rest_len;
+        }
+        console.log(this.wedgeArcLengths());
     }
     
 }

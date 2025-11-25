@@ -24,6 +24,7 @@ export function average(ns: number[]): number {
 }
 
 export function arcLength(alpha: number, beta: number) {
+    // Assume clockwise movement from alpha to beta
     const delta = beta - alpha;
     const length = delta >= 0 ? delta : delta + TWO_PI;
     return length;
@@ -43,6 +44,10 @@ export function angleFromPoint(p: Point, s?: Shape) {
         p_t += TWO_PI;
     }
     return p_t;
+}
+
+export function dist(a: Point, b: Point) {
+    return Math.sqrt(distSq(a, b));
 }
 
 export function distSq(a: Point, b: Point) {
