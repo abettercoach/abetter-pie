@@ -4,10 +4,6 @@ A _Wheel of life_ made up of playful slices.
 
 This project is half-baked.
 
-## Vibes
-
-Delightful, satisfying, and rewarding. 
-
 ## Motive
 
 We're here for reflection. We stan values. We dig priorities. 
@@ -16,6 +12,21 @@ We love coaching.
 But bland, static, and unresponsive paper handouts don't spark joy. They're also easy to lose.
 
 Abetter Pie is an engaging and interactive wheel of life that you can make your own and always come back to.
+
+## State
+
+#### 2025 11 25
+Got basics of dragging slices around and scaling slices down. We have a presentable bare bones demo.
+
+#### 2025 11 19
+Began refactor into a proper Typescript project.
+
+#### 2025 11 12
+Started project as a single js file, P5.js sketch.
+
+## Vibes
+
+Delightful, satisfying, textured, and rewarding. 
 
 ## Inspo
 
