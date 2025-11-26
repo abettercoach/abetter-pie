@@ -68,20 +68,27 @@ const sketch = ( p: P5 ) => {
         remove_ui.active = false;
         remove_ui.onClick = () => {
             data.removeSlice(selected.id);
+
+            selected = null;
+            add_ui.active = true;
+            remove_ui.active = false;
+
             pie_ui.refresh(data);
         };
 
         const pie_circle: Circle = {o: {x: 0, y: 0}, r: p.height * 0.4, kind: 'circle'};
         pie_ui = new UIPie(pie_circle);
-        pie_ui.onSelect = (selected: boolean) => {
-            if (selected) {
-                add_ui.active = false;
-                remove_ui.active = true;
-            } else {
-                add_ui.active = true;
-                remove_ui.active = false;
-            }
+        pie_ui.onSelect = (slice: UISlice) => {
+            add_ui.active = false;
+            remove_ui.active = true;
+            selected = slice;
+            console.log(selected);
         };
+        pie_ui.onRelease = () => {
+            selected = null;
+            add_ui.active = true;
+            remove_ui.active = false;
+        }
 
         pie_ui.onSliceDrag = (id: string, dir: 'cw' | 'ccw') => {
             switch (dir) {

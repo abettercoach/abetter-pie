@@ -197,6 +197,10 @@ export class UISlice extends UIElement {
 
     mouseClicked({ x, y }: Point): void {
         super.mouseClicked({x,y});
+    }
+
+    mousePressed({ x, y }: Point): void {
+        if (!this.active) return;
         this.selected = this.contains({x,y});
     }
 
@@ -301,6 +305,8 @@ export class UIPieSlice extends UISlice {
     }
 
     mousePressed({ x, y }: Point): void {
+        super.mousePressed({x,y});
+
         if (!this.active) return;
 
         if (this.handle.contains({x,y})) {
@@ -356,7 +362,9 @@ export class UIPie extends UIElement {
 
     private slices: Array<UIPieSlice>;
 
-    private _onSelect: (selected: boolean) => void;
+    private _onSelect: (slice: UISlice) => void;
+    private _onRelease: () => void;
+
     private _onScale: (id: string, factor: number) => void;
 
     private _onSliceDrag: (id: string, dri: 'cw' | 'ccw') => void;
@@ -378,8 +386,12 @@ export class UIPie extends UIElement {
         this.strokeWeight = 3;
     }
 
-    set onSelect(cb: (s: boolean) => void) {
+    set onSelect(cb: (slice: UISlice) => void) {
         this._onSelect = cb;
+    }
+
+    set onRelease(cb: () => void) {
+        this._onRelease = cb;
     }
 
     set onScale(cb: (id: string, factor: number) => void){
@@ -392,6 +404,9 @@ export class UIPie extends UIElement {
 
     refresh(data: Pie) {
         this.slices = [];
+
+        const was_draggingUI = this._dragUI;
+        this._dragUI = null;
 
         const len = data.slices.length;
         for (let i = 0; i < len; i++) {
@@ -408,7 +423,7 @@ export class UIPie extends UIElement {
                 slice_ui.selected = true;
             }
 
-            if (this._dragging && this._dragUI.id === slice.id) {
+            if (this._dragging && was_draggingUI.id === slice.id) {
                 // We don't want to duplicate the dragged slice during drag n drop
                 this._dragUI = slice_ui;
             } 
@@ -452,16 +467,19 @@ export class UIPie extends UIElement {
             this._scalingStartLen = null;
         }
 
-        if (this._dragging) {
-            this.stopDrag();
-            return;
-        }
-
+        let selected = false;
         for (let w of this.slices) {
             w.mouseClicked({x,y});
-            if (w.selected) this._onSelect(true);
+
+            selected = selected || w.selected;
+            if (w.selected) this._onSelect(w);
         }
-        this._onSelect(false);
+
+        if (!selected) this._onRelease();
+
+        if (this._dragging) {
+            this.stopDrag();
+        }
     }
 
     mouseMoved({ x, y }: Point) {
@@ -494,7 +512,7 @@ export class UIPie extends UIElement {
     startDrag(p: Point) {
 
         for (let slice_ui of this.slices) {
-            slice_ui.selected = false;
+            // slice_ui.selected = false;
             if (slice_ui.contains(p)) {
                 this._dragLast = p;
                 this._dragUI = slice_ui;
