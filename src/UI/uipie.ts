@@ -451,11 +451,15 @@ export class UIPie extends UIElement {
 
         const len = this.slices.length;
         for (let i = 0; i < len; i++) {
+            if (this._dragging && this._dragUI.id == this.slices[i].id) continue;
             this.slices[i].draw(p5);
         }
 
         if (this._dragging && this._dragUI) {
+            let c = this._dragUI.color;
+            this._dragUI.color = [...c, 200];
             this._dragUI.draw(p5);
+            this._dragUI.color = c;
         }
 
         p5.pop();
