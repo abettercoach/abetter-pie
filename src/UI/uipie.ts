@@ -413,6 +413,13 @@ export class UIPie extends UIElement {
             const slice = data.slices[i];
             const slice_ui = new UIPieSlice(data, slice.id, this.circle);
 
+            if (this._dragging && was_draggingUI.id === slice.id) {
+                // We don't want to duplicate the dragged slice during drag n drop
+                slice_ui.refresh(was_draggingUI.bounds());
+                slice_ui.selected = true;
+                this._dragUI = slice_ui;
+            } 
+
             slice_ui.onScale = (factor: number) => {
                 this._scalingId = slice_ui.id;
                 this._onScale(slice_ui.id, this._scalingStartLen * factor);
@@ -423,10 +430,6 @@ export class UIPie extends UIElement {
                 slice_ui.selected = true;
             }
 
-            if (this._dragging && was_draggingUI.id === slice.id) {
-                // We don't want to duplicate the dragged slice during drag n drop
-                this._dragUI = slice_ui;
-            } 
             
             this.slices.push(slice_ui);
         }
@@ -552,7 +555,6 @@ export class UIPie extends UIElement {
         this._dragUI.refresh(drag_arc);
         this._dragUI.active = true;
         this._dragUI.selected = true;
-
 
         // Check if we crossed next or previous slice's midpoint.
         // 1. Get handed direction 
