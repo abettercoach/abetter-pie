@@ -1,5 +1,5 @@
-export { UIElement } from "./UI/element";
-export { UIWheel, UIWedge } from "./UI/wheel";
-export { UIButton, UIAddButton, UIRemoveButton } from "./UI/buttons";
+export { UIElement } from "./UI/uielement";
+export { UIPie, UISlice } from "./UI/uipie";
+export { UIButton, UIAddButton, UIRemoveButton } from "./UI/uibuttons";
 
 export type UIColor = number[];

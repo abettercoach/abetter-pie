@@ -4,33 +4,33 @@ import { TWO_PI } from "./util";
 import { Circle, Rect } from "./util";
 import * as util from "./util";
 
-import { Wheel } from "./wheel";
+import { Pie } from "./pie";
 
-import { UIWheel, UIWedge, UIButton, UIAddButton, UIRemoveButton } from "./ui";
+import { UIPie, UISlice, UIButton, UIAddButton, UIRemoveButton } from "./ui";
 
 
-function createWheel(): Wheel {
-    const test_wedges = [
+function createPie(): Pie {
+    const test_slices = [
         {
             id: "1",
-            name: "wedge 1",
+            name: "slice 1",
             color: [0,0,0],
             angle: TWO_PI * 0.7
         },
         {
             id: "2",
-            name: "wedge 2",
+            name: "slice 2",
             color: [100,100,100],
             angle: TWO_PI * 0.25
         },
         {
             id: "3",
-            name: "wedge 3",
+            name: "slice 3",
             color: [50,50,50],
             angle: TWO_PI * 0.45
         }
     ];
-    return new Wheel(test_wedges.slice(0,3));
+    return new Pie(test_slices.slice(0,3));
 }
 
 function centeredMouseCoords(p5: P5) {
@@ -44,10 +44,10 @@ function centeredMouseCoords(p5: P5) {
 const sketch = ( p: P5 ) => {
     let add_ui: UIButton;
     let remove_ui: UIButton;
-    let wheel_ui: UIWheel;
+    let pie_ui: UIPie;
 
-    let data: Wheel;
-    let selected: UIWedge;
+    let data: Pie;
+    let selected: UISlice;
 
     function setupUI() {
         
@@ -60,20 +60,20 @@ const sketch = ( p: P5 ) => {
 
         add_ui = new UIAddButton(corner_button_bounds);
         add_ui.onClick = () => {
-            data.addWedge();
-            wheel_ui.refresh(data);
+            data.addSlice();
+            pie_ui.refresh(data);
         };
 
         remove_ui = new UIRemoveButton(corner_button_bounds);
         remove_ui.active = false;
         remove_ui.onClick = () => {
-            data.removeWedge(selected.id);
-            wheel_ui.refresh(data);
+            data.removeSlice(selected.id);
+            pie_ui.refresh(data);
         };
 
-        const wheel_circle: Circle = {o: {x: 0, y: 0}, r: p.height * 0.4, kind: 'circle'};
-        wheel_ui = new UIWheel(wheel_circle);
-        wheel_ui.onSelect = (selected: boolean) => {
+        const pie_circle: Circle = {o: {x: 0, y: 0}, r: p.height * 0.4, kind: 'circle'};
+        pie_ui = new UIPie(pie_circle);
+        pie_ui.onSelect = (selected: boolean) => {
             if (selected) {
                 add_ui.active = false;
                 remove_ui.active = true;
@@ -83,26 +83,26 @@ const sketch = ( p: P5 ) => {
             }
         };
 
-        wheel_ui.onWedgeDrag = (id: string, dir: 'cw' | 'ccw') => {
+        pie_ui.onSliceDrag = (id: string, dir: 'cw' | 'ccw') => {
             switch (dir) {
                 case 'cw':
-                    data.moveWedgeFwd(id);
+                    data.moveSliceFwd(id);
                    break;
                 default:
-                    data.moveWedgeBwd(id);
+                    data.moveSliceBwd(id);
                    break;
             }
 
-            wheel_ui.refresh(data);
+            pie_ui.refresh(data);
         };
 
-        wheel_ui.onScale = (id: string, size: number) => {
-            data.scaleWedge(id, size);
-            wheel_ui.refresh(data);
+        pie_ui.onScale = (id: string, size: number) => {
+            data.scaleSlice(id, size);
+            pie_ui.refresh(data);
         };
 
 
-        wheel_ui.refresh(data);
+        pie_ui.refresh(data);
 
     }
 
@@ -116,7 +116,7 @@ const sketch = ( p: P5 ) => {
         p.createCanvas(p.windowWidth, p.windowHeight);
 
         // Data
-        data = createWheel();
+        data = createPie();
         
         // UI
         setupUI();
@@ -142,7 +142,7 @@ const sketch = ( p: P5 ) => {
         add_ui.draw(p);
         remove_ui.draw(p);
 
-        wheel_ui.draw(p);
+        pie_ui.draw(p);
 
         p.pop();
     }
@@ -152,14 +152,14 @@ const sketch = ( p: P5 ) => {
 
         add_ui.mouseClicked(pointer);
         remove_ui.mouseClicked(pointer);
-        wheel_ui.mouseClicked(pointer);
+        pie_ui.mouseClicked(pointer);
 
     }
 
     p.mouseMoved = () => {
         let pointer = centeredMouseCoords(p);
 
-        wheel_ui.mouseMoved(pointer);
+        pie_ui.mouseMoved(pointer);
         add_ui.mouseMoved(pointer);
         remove_ui.mouseMoved(pointer);
     }
@@ -167,13 +167,13 @@ const sketch = ( p: P5 ) => {
     p.mousePressed = () => {
         const pointer = centeredMouseCoords(p);
 
-        wheel_ui.mousePressed(pointer);
+        pie_ui.mousePressed(pointer);
     }
 
     p.mouseDragged = () => {
         const pointer = centeredMouseCoords(p);
 
-        wheel_ui.mouseDragged(pointer);
+        pie_ui.mouseDragged(pointer);
     }
 
     p.mouseReleased = () => {

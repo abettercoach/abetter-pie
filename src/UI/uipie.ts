@@ -5,9 +5,9 @@ import { Circle, Arc, Rect, Line, Point } from "../util";
 import * as util from "../util";
 
 import { UIElement, UIColor } from "../ui";
-import { Wheel } from "../wheel";
+import { Pie } from "../pie";
 
-class UIWedgeHandle extends UIElement {
+class UISliceHandle extends UIElement {
     _arc: Arc;
     _rect: Rect;
     _color: UIColor;
@@ -70,7 +70,7 @@ class UIWedgeHandle extends UIElement {
     }
 }
 
-export class UIWedgeLabel {
+export class UISliceLabel {
     private arc: Arc;
     private lines: Array<Line>
     private label: string;
@@ -164,7 +164,7 @@ export class UIWedgeLabel {
     }
 }
 
-export class UIWedge extends UIElement {
+export class UISlice extends UIElement {
     protected arc: Arc;
 
     private _selected: boolean;
@@ -227,10 +227,10 @@ export class UIWedge extends UIElement {
     }
 }
 
-export class UIWheelWedge extends UIWedge {
+export class UIPieSlice extends UISlice {
     
-    private label: UIWedgeLabel;
-    private handle: UIWedgeHandle;
+    private label: UISliceLabel;
+    private handle: UISliceHandle;
     private og_arc: Arc;
 
     private _onScale: (factor: number) => void;
@@ -238,13 +238,13 @@ export class UIWheelWedge extends UIWedge {
     private _scaleStart: Point;
     _scaling: boolean;
 
-    constructor(data: Wheel, wedge_id: string, circle: Circle) {
+    constructor(data: Pie, slice_id: string, circle: Circle) {
     
-        const i = data.wedges.findIndex(w => w.id === wedge_id);
-        const j = mod(i + 1, data.wedges.length);
+        const i = data.slices.findIndex(w => w.id === slice_id);
+        const j = mod(i + 1, data.slices.length);
         
-        const start = data.wedges[i].angle;
-        const end = data.wedges[j].angle;
+        const start = data.slices[i].angle;
+        const end = data.slices[j].angle;
 
         const arc: Arc = {
             o: circle.o,
@@ -254,14 +254,14 @@ export class UIWheelWedge extends UIWedge {
             kind: 'arc'
         }
         
-        super(arc, data.wedges[i].color);
+        super(arc, data.slices[i].color);
 
         this.og_arc = arc;
 
-        this.id = wedge_id;
+        this.id = slice_id;
 
-        this.label = new UIWedgeLabel(arc, data.wedges[i].name);
-        this.handle = new UIWedgeHandle(arc, [0,0,0]);
+        this.label = new UISliceLabel(arc, data.slices[i].name);
+        this.handle = new UISliceHandle(arc, [0,0,0]);
     }
 
     set selected(b: boolean) {
@@ -349,22 +349,22 @@ export class UIWheelWedge extends UIWedge {
     }
 }
 
-export class UIWheel extends UIElement {
+export class UIPie extends UIElement {
     private circle: Circle;
     private strokeWeight: number;
     private strokeColor: UIColor;
 
-    private wedges: Array<UIWheelWedge>;
+    private slices: Array<UIPieSlice>;
 
     private _onSelect: (selected: boolean) => void;
     private _onScale: (id: string, factor: number) => void;
 
-    private _onWedgeDrag: (id: string, dri: 'cw' | 'ccw') => void;
+    private _onSliceDrag: (id: string, dri: 'cw' | 'ccw') => void;
 
     private _dragging: boolean;
     private _dragLast: Point;
     private _dragOffset: number;
-    private _dragUI: UIWheelWedge;
+    private _dragUI: UIPieSlice;
 
     private _scaling: boolean;
     private _scalingId: string;
@@ -386,34 +386,34 @@ export class UIWheel extends UIElement {
         this._onScale = cb;
     }
 
-    set onWedgeDrag(cb: (id: string, dir: 'cw' | 'ccw') => void){
-        this._onWedgeDrag = cb;
+    set onSliceDrag(cb: (id: string, dir: 'cw' | 'ccw') => void){
+        this._onSliceDrag = cb;
     }
 
-    refresh(data: Wheel) {
-        this.wedges = [];
+    refresh(data: Pie) {
+        this.slices = [];
 
-        const len = data.wedges.length;
+        const len = data.slices.length;
         for (let i = 0; i < len; i++) {
-            const wedge = data.wedges[i];
-            const wedge_ui = new UIWheelWedge(data, wedge.id, this.circle);
+            const slice = data.slices[i];
+            const slice_ui = new UIPieSlice(data, slice.id, this.circle);
 
-            wedge_ui.onScale = (factor: number) => {
-                this._scalingId = wedge_ui.id;
-                this._onScale(wedge_ui.id, this._scalingStartLen * factor);
+            slice_ui.onScale = (factor: number) => {
+                this._scalingId = slice_ui.id;
+                this._onScale(slice_ui.id, this._scalingStartLen * factor);
             }
 
-            if (this._scaling && this._scalingId === wedge.id) {
-                wedge_ui.startDrag(this._scalingStartPoint);
-                wedge_ui.selected = true;
+            if (this._scaling && this._scalingId === slice.id) {
+                slice_ui.startDrag(this._scalingStartPoint);
+                slice_ui.selected = true;
             }
 
-            if (this._dragging && this._dragUI.id === wedge.id) {
-                // We don't want to duplicate the dragged wedge during drag n drop
-                this._dragUI = wedge_ui;
+            if (this._dragging && this._dragUI.id === slice.id) {
+                // We don't want to duplicate the dragged slice during drag n drop
+                this._dragUI = slice_ui;
             } 
             
-            this.wedges.push(wedge_ui);
+            this.slices.push(slice_ui);
         }
     }
 
@@ -431,9 +431,9 @@ export class UIWheel extends UIElement {
         p5.stroke(p5.color(this.strokeColor));
         p5.strokeWeight(this.strokeWeight);
 
-        const len = this.wedges.length;
+        const len = this.slices.length;
         for (let i = 0; i < len; i++) {
-            this.wedges[i].draw(p5);
+            this.slices[i].draw(p5);
         }
 
         if (this._dragging && this._dragUI) {
@@ -457,7 +457,7 @@ export class UIWheel extends UIElement {
             return;
         }
 
-        for (let w of this.wedges) {
+        for (let w of this.slices) {
             w.mouseClicked({x,y});
             if (w.selected) this._onSelect(true);
         }
@@ -467,14 +467,14 @@ export class UIWheel extends UIElement {
     mouseMoved({ x, y }: Point) {
         if (!this.active) return;
         
-        for (let w of this.wedges) {
+        for (let w of this.slices) {
             w.mouseMoved({x,y});
         }
 
     }
 
     mousePressed({ x, y }: Point): void {
-        for (let w of this.wedges) {
+        for (let w of this.slices) {
             w.mousePressed({x,y});
             this._scaling = true;
             this._scalingStartPoint = {x,y};
@@ -493,14 +493,14 @@ export class UIWheel extends UIElement {
 
     startDrag(p: Point) {
 
-        for (let wedge_ui of this.wedges) {
-            wedge_ui.selected = false;
-            if (wedge_ui.contains(p)) {
+        for (let slice_ui of this.slices) {
+            slice_ui.selected = false;
+            if (slice_ui.contains(p)) {
                 this._dragLast = p;
-                this._dragUI = wedge_ui;
+                this._dragUI = slice_ui;
                 // this._dragging = true; 
                 
-                const mid = util.angleBetween(wedge_ui.bounds().t1, wedge_ui.bounds().t2);
+                const mid = util.angleBetween(slice_ui.bounds().t1, slice_ui.bounds().t2);
                 this._dragOffset = mid - util.angleFromPoint(p, this.circle);
             }
         }
@@ -508,7 +508,7 @@ export class UIWheel extends UIElement {
 
     mouseDragged({x,y}: Point) {
         if (this._scaling) {
-            for (let w of this.wedges) {
+            for (let w of this.slices) {
                 if (this._scalingId) {
                     w.scaling = w.id === this._scalingId;
                 }
@@ -516,13 +516,13 @@ export class UIWheel extends UIElement {
             }
         }
 
-        // TODO: Fix UIWedge contains to accurately reflect bounds when selected
-        // TODO: Also check against having started dragging inside of the wedge!
+        // TODO: Fix UISlice contains to accurately reflect bounds when selected
+        // TODO: Also check against having started dragging inside of the slice!
         if (!this._dragUI) return;
         this._dragging = true; // <- we only mark this here so that we return on line 457 when clicked is called at drag release
 
-        // Calculating angles for the floating wedge
-        // TODO: ??? Move this logic inside UIWedge's own drag hanlder ???
+        // Calculating angles for the floating slice
+        // TODO: ??? Move this logic inside UISlice's own drag hanlder ???
 
         const theta = this._dragOffset + util.angleFromPoint({x,y}, this.circle);
 
@@ -536,7 +536,7 @@ export class UIWheel extends UIElement {
         this._dragUI.selected = true;
 
 
-        // Check if we crossed next or previous wedge's midpoint.
+        // Check if we crossed next or previous slice's midpoint.
         // 1. Get handed direction 
         const last = this._dragLast;
         const curr = {x,y};
@@ -547,20 +547,20 @@ export class UIWheel extends UIElement {
         let sign = Math.sign(b - a);
         const dir = sign >= 0 ? 'cw' : 'ccw';
 
-        // 2. Next wedge depends on clockwise or counterclockwise direction
-        const l = this.wedges.length;
-        const curr_i = this.wedges.findIndex(w => w.id === this._dragUI.id);
+        // 2. Next slice depends on clockwise or counterclockwise direction
+        const l = this.slices.length;
+        const curr_i = this.slices.findIndex(w => w.id === this._dragUI.id);
         const next_i = mod(curr_i + sign, l);
 
-        // 3. Will compare against start or end edge of floating wedge, depending on direction
+        // 3. Will compare against start or end edge of floating slice, depending on direction
         const comp = dir == 'cw' ? drag_arc.t2 : drag_arc.t1;
 
-        // 4. If floating edge is near threshold from middle of the next wedge, callback
-        const next_arc = this.wedges[next_i].bounds();
+        // 4. If floating edge is near threshold from middle of the next slice, callback
+        const next_arc = this.slices[next_i].bounds();
         const next_mid = util.angleBetween(next_arc.t1, next_arc.t2);
         const near = Math.abs(next_mid - comp) <= 0.1; 
 
-        if (near) this._onWedgeDrag(this._dragUI.id, dir);
+        if (near) this._onSliceDrag(this._dragUI.id, dir);
 
         // Keep track of last point in drag for next call
         this._dragLast = curr;
@@ -575,8 +575,8 @@ export class UIWheel extends UIElement {
         this._dragging = false;
         this._dragLast = null;
 
-        const og_wedge = this.wedges.find(w => w.id === this._dragUI.id);
-        og_wedge.reset();
+        const og_slice = this.slices.find(w => w.id === this._dragUI.id);
+        og_slice.reset();
 
         this._dragUI = null;
     }
