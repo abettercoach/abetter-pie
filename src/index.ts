@@ -82,7 +82,6 @@ const sketch = ( p: P5 ) => {
             add_ui.active = false;
             remove_ui.active = true;
             selected = slice;
-            console.log(selected);
         };
         pie_ui.onRelease = () => {
             selected = null;
@@ -127,15 +126,6 @@ const sketch = ( p: P5 ) => {
         
         // UI
         setupUI();
-
-        //Testing
-        let circle: Circle = {o: {x: 0, y:0}, r: 100, kind:`circle`};
-        let p1 = {x: 50, y:-50};
-        let p2 = {x: 50, y:50};
-        let t1 = util.angleFromPoint(p1, circle);
-        let t2 = util.angleFromPoint(p2, circle);
-        console.log(`Point: ${p1}, Angle: ${(t1/TWO_PI)*360}`);
-        console.log(`Point: ${p2}, Angle: ${(t2/TWO_PI)*360}`);
     }
 
     p.draw = () => {

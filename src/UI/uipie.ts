@@ -571,18 +571,33 @@ export class UIPie extends UIElement {
         let sign = Math.sign(b - a);
         const dir = sign >= 0 ? 'cw' : 'ccw';
 
+        if (sign === 0) return;
+
         // 2. Next slice depends on clockwise or counterclockwise direction
         const l = this.slices.length;
         const curr_i = this.slices.findIndex(w => w.id === this._dragUI.id);
         const next_i = mod(curr_i + sign, l);
 
         // 3. Will compare against start or end edge of floating slice, depending on direction
-        const comp = dir == 'cw' ? drag_arc.t2 : drag_arc.t1;
+        const floating_edge = dir == 'cw' ? drag_arc.t2 : drag_arc.t1;
 
         // 4. If floating edge is near threshold from middle of the next slice, callback
         const next_arc = this.slices[next_i].bounds();
         const next_mid = util.angleBetween(next_arc.t1, next_arc.t2);
-        const near = Math.abs(next_mid - comp) <= 0.1; 
+        const opp_mid = mod(next_mid + Math.PI, TWO_PI);
+        let perp_mid = sign > 0 ? util.angleBetween(next_mid, opp_mid) : util.angleBetween(opp_mid, next_mid);
+
+        // The case we need to handle is if perpendicular_mid wraps around the 0 theta
+        // It's easiest to compare distance between angles if they don't wrap around
+        // So this is one of the few times we want angles to be < 0 or > TWO_PI
+        if (sign > 0 && floating_edge > perp_mid) {
+            perp_mid += TWO_PI;
+        } else if (sign < 0 && floating_edge < perp_mid) {
+            perp_mid -= TWO_PI;
+        }
+
+        const diff = Math.abs(perp_mid - floating_edge);
+        const near = diff <= TWO_PI / 4; 
 
         if (near) this._onSliceDrag(this._dragUI.id, dir);
 
