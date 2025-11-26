@@ -26,7 +26,7 @@ export function average(ns: number[]): number {
 export function arcLength(alpha: number, beta: number) {
     // Assume clockwise movement from alpha to beta
     const delta = beta - alpha;
-    const length = delta >= 0 ? delta : delta + TWO_PI;
+    const length = delta > 0 ? delta : delta + TWO_PI;
     return length;
 }
 

@@ -21,13 +21,10 @@ export class Pie {
     }
 
     sliceArcLengths(): number[] {
-        console.log("sliceArcLengths");
         const lens = this.slices.map((slice, index, array) => {
             const nextIndex = mod((index + 1), array.length);
             const next = array[nextIndex];
 
-            console.log(slice.angle, next.angle);
-            console.log(util.arcLength(slice.angle, next.angle));
             return util.arcLength(slice.angle, next.angle);
         });
 
@@ -35,12 +32,15 @@ export class Pie {
     }
 
     addSlice() {
+        console.log("addSlice");
         const arc_lens = this.sliceArcLengths(); //Get all arc lens in radians
         const arc_pcts = arc_lens.map(v => v / TWO_PI); //Arc lens as percent of circle
+        console.log(`arc pcts: ${arc_pcts}`);
     
         const avg_arc_pct = util.average(arc_pcts); //Avg lens as percent of circle -> Length of new slice
-        
-        const new_len = avg_arc_pct * TWO_PI; 
+        const new_pct = (avg_arc_pct) / (1 + avg_arc_pct);
+
+        const new_len = new_pct * TWO_PI; 
     
         //Construct new slice, to insert at end of pie after shifting all other slices
         const new_angle = 0 - (new_len * 0.5) + TWO_PI; 
