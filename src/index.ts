@@ -14,18 +14,21 @@ function createPie(): Pie {
         {
             id: "1",
             name: "slice 1",
+            order: 0,
             color: [0,0,0],
             angle: TWO_PI * 0.7
         },
         {
             id: "2",
             name: "slice 2",
+            order: 1,
             color: [100,100,100],
             angle: TWO_PI * 0.25
         },
         {
             id: "3",
             name: "slice 3",
+            order: 2,
             color: [50,50,50],
             angle: TWO_PI * 0.45
         }

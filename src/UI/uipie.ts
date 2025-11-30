@@ -264,7 +264,8 @@ export class UIPieSlice extends UISlice {
 
         this.id = slice_id;
 
-        this.label = new UISliceLabel(arc, data.slices[i].name);
+        const label_text = `${data.slices[i].name} | ${data.slices[i].order}`;
+        this.label = new UISliceLabel(arc, label_text);
         this.handle = new UISliceHandle(arc, [0,0,0]);
     }
 

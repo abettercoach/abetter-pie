@@ -8,6 +8,7 @@ import { UIColor } from "./ui";
 export class Slice {
     id: string;
     name: string;
+    order: number;
     color: UIColor;
     angle: number;
 }
@@ -35,7 +36,6 @@ export class Pie {
         console.log("addSlice");
         const arc_lens = this.sliceArcLengths(); //Get all arc lens in radians
         const arc_pcts = arc_lens.map(v => v / TWO_PI); //Arc lens as percent of circle
-        console.log(`arc pcts: ${arc_pcts}`);
     
         const avg_arc_pct = util.average(arc_pcts); //Avg lens as percent of circle -> Length of new slice
         const new_pct = (avg_arc_pct) / (1 + avg_arc_pct);
@@ -49,6 +49,7 @@ export class Pie {
         const new_slice = {
             id: new_id,
             name: `Slice: ${new_id}`,
+            order: 0,
             color: [new_gray, new_gray, new_gray],
             angle: new_angle
         }
@@ -63,6 +64,7 @@ export class Pie {
             const slice: Slice = {
                 id: old_slice.id,
                 name: old_slice.name,
+                order: old_slice.order + 1,
                 color: old_slice.color,
                 angle: current_a
             }
@@ -96,6 +98,7 @@ export class Pie {
             const slice: Slice = {
                 id: old_slice.id,
                 name: old_slice.name,
+                order: i < ix ? old_slice.order : old_slice.order - 1,
                 color: old_slice.color,
                 angle: current_t
             }
@@ -113,14 +116,14 @@ export class Pie {
         const j = (i + 1) % this.slices.length;
         const k = (j + 1) % this.slices.length;
     
-        const current = this.slices[i];
-        const next = this.slices[j];
+        const moving = this.slices[i];
+        const swaping = this.slices[j];
         const following = this.slices[k];
     
-        const next_len = util.arcLength(next.angle, following.angle);
+        const next_len = util.arcLength(swaping.angle, following.angle);
     
-        const next_angle = current.angle;
-        const curr_angle = mod(current.angle + next_len, TWO_PI);
+        const swap_angle = moving.angle; // Next slice's new angle = moved slice's old angle
+        const move_angle = mod(moving.angle + next_len, TWO_PI); // Moved slice's new angle is relative to the previous
     
         const new_slices = [];
         
@@ -128,9 +131,18 @@ export class Pie {
             let newSlice: Slice = structuredClone(w);
             new_slices.push(newSlice);
         }
-        new_slices[i].angle = curr_angle;
-        new_slices[j].angle = next_angle;
+
+        // Change slice properties before swapping in the array itself
+        const moved = new_slices[i];
+        const swaped = new_slices[j];
+
+        moved.angle = move_angle;
+        moved.order = swaping.order;
+
+        swaped.angle = swap_angle;
+        swaped.order = moving.order;
     
+        // Swapping in the array, after all properties have already been updated
         [new_slices[i], new_slices[j]] = [new_slices[j], new_slices[i]];
         
         this.slices = new_slices;
