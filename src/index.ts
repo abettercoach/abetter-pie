@@ -7,33 +7,86 @@ import * as util from "./util";
 import { Pie } from "./pie";
 
 import { UIPie, UISlice, UIButton, UIAddButton, UIRemoveButton } from "./ui";
+import { buildCursorSVG } from "./UI/uicursor";
 
 
+const test_c = [100,100,100];
 function createPie(): Pie {
     const test_slices = [
         {
             id: "1",
-            name: "slice 1",
+            name: "coaching",
+            value: 5,
             order: 0,
-            color: [0,0,0],
-            angle: TWO_PI * 0.7
+            color: test_c,
+            angle: TWO_PI * 0
         },
         {
             id: "2",
-            name: "slice 2",
+            name: "coding",
+            value: 5,
             order: 1,
-            color: [100,100,100],
-            angle: TWO_PI * 0.25
+            color: test_c,
+            angle: TWO_PI / 9
         },
         {
             id: "3",
-            name: "slice 3",
+            name: "art",
+            value: 3,
             order: 2,
-            color: [50,50,50],
-            angle: TWO_PI * 0.45
-        }
+            color: test_c,
+            angle: TWO_PI / 9 * 2
+        },
+        {
+            id: "4",
+            name: "home",
+            value: 6,
+            order: 3,
+            color: test_c,
+            angle: TWO_PI / 9 * 3
+        },
+        {
+            id: "5",
+            name: "bodess",
+            value: 6,
+            order: 4,
+            color: test_c,
+            angle: TWO_PI / 9 * 4
+        },
+        {
+            id: "6",
+            name: "fun",
+            value: 3,
+            order: 5,
+            color: test_c,
+            angle: TWO_PI / 9 * 5
+        },
+        {
+            id: "7",
+            name: "spirit",
+            value: 3,
+            order: 6,
+            color: test_c,
+            angle: TWO_PI / 9 * 6
+        },
+        {
+            id: "8",
+            name: "love",
+            value: 9,
+            order: 7,
+            color: test_c,
+            angle: TWO_PI / 9 * 7
+        },
+        {
+            id: "9",
+            name: "giving",
+            value: 2,
+            order: 8,
+            color: test_c,
+            angle: TWO_PI / 9 * 8
+        },
     ];
-    return new Pie(test_slices.slice(0,3));
+    return new Pie(test_slices);
 }
 
 function centeredMouseCoords(p5: P5) {
@@ -162,6 +215,7 @@ const sketch = ( p: P5 ) => {
         pie_ui.mouseMoved(pointer);
         add_ui.mouseMoved(pointer);
         remove_ui.mouseMoved(pointer);
+
     }
 
     p.mousePressed = () => {

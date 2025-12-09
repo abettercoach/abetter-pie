@@ -4,7 +4,7 @@ import { TWO_PI, mod, dist } from "../util";
 import { Circle, Arc, Rect, Line, Point } from "../util";
 import * as util from "../util";
 
-import { UIElement, UIColor } from "../ui";
+import { UIElement, UIColor, buildCursorSVG } from "../ui";
 import { Pie } from "../pie";
 
 class UISliceHandle extends UIElement {
@@ -170,7 +170,6 @@ export class UISlice extends UIElement {
     private _selected: boolean;
 
     color: UIColor;
-
     id: string;
 
     constructor(arc: Arc, color: UIColor) {
@@ -192,7 +191,15 @@ export class UISlice extends UIElement {
     }
 
     bounds() {
-        return this.arc;
+
+        let bounds = this.arc;
+        if (this.selected) {
+            bounds = util.selectedArc(bounds);
+        } else if (this.hovering) {
+            bounds = util.hoveredArc(bounds);
+        }
+
+        return bounds;
     }
 
     mouseClicked({ x, y }: Point): void {
@@ -208,26 +215,20 @@ export class UISlice extends UIElement {
 
         if (!this.active) return;
 
-        const arc = this.arc;
-        const o = arc.o;
-        const start = arc.t1;
-        const end = arc.t2;
+        p5.fill(p5.color(this.color));
+        this.drawSlice(p5, this.arc);
+    }
 
-        let dx = 0;
-        let dy = 0;
-        if (this.selected) {
-            const t = util.angleBetween(arc.t1, arc.t2);
-            dx = 15 * Math.cos(t);
-            dy = 15 * Math.sin(t);
+    protected drawSlice(p5: P5, arc: Arc, mode?: P5.ARC_MODE, selected?: boolean, hovering?: boolean) {
+
+        let a = arc;
+        if (selected || this.selected) {
+            a = util.selectedArc(arc);
+        } else if (hovering || this.hovering) {
+            a = util.hoveredArc(arc);
         }
 
-        let scale = this.hovering ? 1.08 : 1;
-        scale = this.selected ? 1.12 : scale;
-
-        const d = arc.r * 2 * scale; 
-
-        p5.fill(p5.color(this.color));
-        p5.arc(o.x + dx, o.y + dy, d, d, start, end, p5.PIE);
+        p5.arc(a.o.x, a.o.y, a.r*2, a.r*2, a.t1, a.t2, mode || p5.PIE);
     }
 }
 
@@ -235,6 +236,8 @@ export class UIPieSlice extends UISlice {
     
     private label: UISliceLabel;
     private handle: UISliceHandle;
+
+    private slice_val: number;
     private og_arc: Arc;
 
     private _onScale: (factor: number) => void;
@@ -250,23 +253,29 @@ export class UIPieSlice extends UISlice {
         const start = data.slices[i].angle;
         const end = data.slices[j].angle;
 
-        const arc: Arc = {
+        const bg_arc: Arc = {
             o: circle.o,
             r: circle.r,
             t1: start,
             t2: end,
             kind: 'arc'
-        }
-        
-        super(arc, data.slices[i].color);
+        };
 
-        this.og_arc = arc;
+        
+        const bg_color = [...data.slices[i].color, 125];
+        super(bg_arc, bg_color); // TODO: Make this class not inherit from UISlice?
+
+        this.og_arc = bg_arc;
 
         this.id = slice_id;
+        this.slice_val = data.slices[i].value;
 
         const label_text = `${data.slices[i].name} | ${data.slices[i].order}`;
-        this.label = new UISliceLabel(arc, label_text);
-        this.handle = new UISliceHandle(arc, [0,0,0]);
+        this.label = new UISliceLabel(bg_arc, label_text);
+
+        this.handle = new UISliceHandle(bg_arc, [0,0,0]);
+
+        this.color = data.slices[i].color;
     }
 
     set selected(b: boolean) {
@@ -290,8 +299,26 @@ export class UIPieSlice extends UISlice {
         return this._scaling;
     }
 
+    private get bg_arc(): Arc {
+        return this.arc;
+    }
+
+    private get fg_arc(): Arc {
+        const val_pct = (this.slice_val * 10) / 100;
+        const fg_arc: Arc = {
+            ...this.arc,
+            r: this.arc.r * val_pct,
+        };
+        return fg_arc;
+    }
+
+    get ogBounds(): Arc {
+        return this.og_arc;
+    }
+
     refresh(arc: Arc) {
         this.arc = arc;
+
         this.label.refresh(arc);
         this.handle.refresh(arc);
     }
@@ -303,6 +330,27 @@ export class UIPieSlice extends UISlice {
     mouseMoved({x,y}: Point): void {
         super.mouseMoved({x,y});
         this.handle.mouseMoved({x,y});
+
+        // Cursor
+
+        if (this.hovering) {
+            if (this.selected) {
+                const a = util.selectedArc(this.fg_arc);
+
+                const dist = util.dist({x,y}, a.o);
+                const diff = Math.abs(dist - a.r);
+                if (diff < 5) {
+                    const radians = util.angleFromPoint({x,y}, a) + TWO_PI / 4;
+                    const degrees = radians / TWO_PI * 360;
+                    
+                    document.body.style.cursor = buildCursorSVG(degrees);
+                } else {
+                    document.body.style.cursor = `auto`;
+                }
+            } else {
+                document.body.style.cursor = `auto`;
+            }
+        }
     }
 
     mousePressed({ x, y }: Point): void {
@@ -311,7 +359,6 @@ export class UIPieSlice extends UISlice {
         if (!this.active) return;
 
         if (this.handle.contains({x,y})) {
-            console.log("start drag handle");
             this.startDrag({x,y});
         }
     }
@@ -324,10 +371,68 @@ export class UIPieSlice extends UISlice {
     }
 
     draw(p5: P5) {
-        super.draw(p5);
+        //super.draw(p5);
 
         if (!this.active) return;
 
+        // Draw Background Arc
+        p5.push();
+        p5.stroke("white");
+        p5.strokeWeight(3);
+
+        p5.fill([...this.color]);
+        // this.drawSlice(p5, this.bg_arc);
+        
+        p5.pop();
+
+        // Draw Foreground Arc
+
+        p5.push();
+        p5.stroke([255,255,255,0]);
+        p5.strokeWeight(3);
+        
+        p5.fill([...this.color]);
+        this.drawSlice(p5, this.fg_arc);
+
+        p5.pop();
+
+        // Draw Hatch Marks
+
+        p5.push()
+        p5.stroke([255,255,255,0]);
+        p5.strokeWeight(3);
+
+        for (let i = 0; i < 10; i++) {
+            const hatch_r = this.bg_arc.r * (i * 10 / 100);
+            const c = hatch_r < this.fg_arc.r ? [255,255,255] : [100,100,100];
+
+
+            p5.fill([...c,25]);
+
+            const hatch_slice = {
+                ...this.bg_arc,
+                t1: this.bg_arc.t1,
+                r: hatch_r,
+            };
+
+            this.drawSlice(p5, hatch_slice);
+        }
+
+        p5.pop()
+
+        // Draw Borders
+        p5.push();
+
+        p5.stroke([255,255,255]);
+        p5.strokeWeight(3);
+        p5.noFill();
+
+        // p5.fill([...this.color]);
+        this.drawSlice(p5, this.bg_arc);
+        
+        p5.pop();
+
+        // Draw Labels and Handle
         this.label.draw(p5);
 
         if (this.selected) {
@@ -336,17 +441,15 @@ export class UIPieSlice extends UISlice {
     }
 
     startDrag(p: Point) {
-        console.log("scale start: ", p);
         this._scaleStart = p;
         this._scaling = true;
     }
 
     mouseDragged(p: Point) {
         if (!this._scaling || !this._scaleStart) return;
+
         const p0 = this._scaleStart;
         const p1 = p;
-
-        console.log(p0, p1, this.bounds());
 
         const r = dist(p0, this.bounds().o);
         const d = dist(p1, this.bounds().o);
@@ -416,7 +519,7 @@ export class UIPie extends UIElement {
 
             if (this._dragging && was_draggingUI.id === slice.id) {
                 // We don't want to duplicate the dragged slice during drag n drop
-                slice_ui.refresh(was_draggingUI.bounds());
+                slice_ui.refresh(was_draggingUI.ogBounds);
                 slice_ui.selected = true;
                 this._dragUI = slice_ui;
             } 
@@ -445,7 +548,7 @@ export class UIPie extends UIElement {
 
         p5.push();
 
-        p5.translate(this.circle.o.x, this.circle.o.y);
+        p5.translate(this.circle.o.x, this.circle.o.y);//
 
         p5.stroke(p5.color(this.strokeColor));
         p5.strokeWeight(this.strokeWeight);
@@ -492,6 +595,8 @@ export class UIPie extends UIElement {
 
     mouseMoved({ x, y }: Point) {
         if (!this.active) return;
+
+        document.body.style.cursor = `auto`;    
         
         for (let w of this.slices) {
             w.mouseMoved({x,y});
@@ -534,6 +639,7 @@ export class UIPie extends UIElement {
 
     mouseDragged({x,y}: Point) {
         if (this._scaling) {
+
             for (let w of this.slices) {
                 if (this._scalingId) {
                     w.scaling = w.id === this._scalingId;
@@ -552,7 +658,7 @@ export class UIPie extends UIElement {
 
         const theta = this._dragOffset + util.angleFromPoint({x,y}, this.circle);
 
-        const drag_arc = {...this._dragUI.bounds()}; //Copy to keep origianl bounds intact for snap-back
+        const drag_arc = {...this._dragUI.ogBounds}; //Copy to keep original bounds intact for snap-back
         const drag_len = util.arcLength(drag_arc.t1, drag_arc.t2);
         drag_arc.t1 = mod(theta - drag_len * 0.5, TWO_PI);
         drag_arc.t2 = mod(theta + drag_len * 0.5, TWO_PI);

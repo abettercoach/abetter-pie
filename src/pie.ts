@@ -8,6 +8,7 @@ import { UIColor } from "./ui";
 export class Slice {
     id: string;
     name: string;
+    value: number;
     order: number;
     color: UIColor;
     angle: number;
@@ -49,6 +50,7 @@ export class Pie {
         const new_slice = {
             id: new_id,
             name: `Slice: ${new_id}`,
+            value: 5,
             order: 0,
             color: [new_gray, new_gray, new_gray],
             angle: new_angle
@@ -64,6 +66,7 @@ export class Pie {
             const slice: Slice = {
                 id: old_slice.id,
                 name: old_slice.name,
+                value: old_slice.value,
                 order: old_slice.order + 1,
                 color: old_slice.color,
                 angle: current_a
@@ -98,6 +101,7 @@ export class Pie {
             const slice: Slice = {
                 id: old_slice.id,
                 name: old_slice.name,
+                value: old_slice.value,
                 order: i < ix ? old_slice.order : old_slice.order - 1,
                 color: old_slice.color,
                 angle: current_t

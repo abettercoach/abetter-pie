@@ -30,6 +30,32 @@ export function arcLength(alpha: number, beta: number) {
     return length;
 }
 
+export function shiftedOrigin(arc: Arc, c: number) {
+
+    let dx = 0;
+    let dy = 0;
+    const t = angleBetween(arc.t1, arc.t2);
+    dx = c * Math.cos(t);
+    dy = c * Math.sin(t);
+
+    return {x: arc.o.x + dx, y: arc.o.y + dy};
+}
+
+export function selectedArc(arc: Arc) {
+    return {
+        ...arc,
+        o: shiftedOrigin(arc, 15),
+        r: arc.r * 1.12
+    }
+}
+
+export function hoveredArc(arc: Arc) {
+    return {
+        ...arc,
+        r: arc.r * 1.08
+    }
+}
+
 export function angleBetween(alpha: number, beta: number) {
     let length = arcLength(alpha, beta);
     const mid = alpha + (length / 2);
