@@ -139,13 +139,14 @@ const sketch = ( p: P5 ) => {
             remove_ui.active = true;
             selected = slice;
         };
+
         pie_ui.onRelease = () => {
             selected = null;
             add_ui.active = true;
             remove_ui.active = false;
         }
 
-        pie_ui.onSliceDrag = (id: string, dir: 'cw' | 'ccw') => {
+        pie_ui.onDisplace = (id: string, dir: 'cw' | 'ccw') => {
             switch (dir) {
                 case 'cw':
                     data.moveSliceFwd(id);

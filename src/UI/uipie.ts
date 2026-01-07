@@ -244,6 +244,7 @@ export class UIPieSlice extends UISlice {
 
     private _scaleStart: Point;
     _scaling: boolean;
+    _displacing: boolean;
 
     constructor(data: Pie, slice_id: string, circle: Circle) {
     
@@ -291,13 +292,13 @@ export class UIPieSlice extends UISlice {
         this._onScale = cb;
     }
 
-    set scaling(b: boolean) {
-        this._scaling = b;
-    }
+    // set scaling(b: boolean) {
+    //     this._scaling = b;
+    // }
 
-    get scaling(): boolean {
-        return this._scaling;
-    }
+    // get scaling(): boolean {
+    //     return this._scaling;
+    // }
 
     private get bg_arc(): Arc {
         return this.arc;
@@ -360,6 +361,8 @@ export class UIPieSlice extends UISlice {
 
         if (this.handle.contains({x,y})) {
             this.startDrag({x,y});
+        } else if (this.contains({x,y})) {
+            this._displacing = true;
         }
     }
 
@@ -441,12 +444,14 @@ export class UIPieSlice extends UISlice {
     }
 
     startDrag(p: Point) {
+        console.log("Slice Start Drag");
         this._scaleStart = p;
         this._scaling = true;
     }
 
     mouseDragged(p: Point) {
         if (!this._scaling || !this._scaleStart) return;
+        console.log("Scaling");
 
         const p0 = this._scaleStart;
         const p1 = p;
@@ -470,13 +475,14 @@ export class UIPie extends UIElement {
     private _onRelease: () => void;
 
     private _onScale: (id: string, factor: number) => void;
+    private _onDisplace: (id: string, dri: 'cw' | 'ccw') => void;
+    private _onAppraise: (id: string, value: number) => void;
 
-    private _onSliceDrag: (id: string, dri: 'cw' | 'ccw') => void;
-
-    private _dragging: boolean;
+    private _displacing: boolean;
     private _dragLast: Point;
-    private _dragOffset: number;
-    private _dragUI: UIPieSlice;
+
+    private _dragOffset: number; // <- Angle offset for Displace 
+    private _displaceOverlay: UIPieSlice;
 
     private _scaling: boolean;
     private _scalingId: string;
@@ -502,33 +508,38 @@ export class UIPie extends UIElement {
         this._onScale = cb;
     }
 
-    set onSliceDrag(cb: (id: string, dir: 'cw' | 'ccw') => void){
-        this._onSliceDrag = cb;
+    set onDisplace(cb: (id: string, dir: 'cw' | 'ccw') => void){
+        this._onDisplace = cb;
     }
 
     refresh(data: Pie) {
         this.slices = [];
 
-        const was_draggingUI = this._dragUI;
-        this._dragUI = null;
+        const was_draggingUI = this._displaceOverlay;
+        this._displaceOverlay = null;
 
         const len = data.slices.length;
         for (let i = 0; i < len; i++) {
             const slice = data.slices[i];
             const slice_ui = new UIPieSlice(data, slice.id, this.circle);
 
-            if (this._dragging && was_draggingUI.id === slice.id) {
+            // v Here we're running into some of that logic to check
+            // if we're still in the middle of a displace or not
+            if (this._displacing && was_draggingUI.id === slice.id) {
                 // We don't want to duplicate the dragged slice during drag n drop
                 slice_ui.refresh(was_draggingUI.ogBounds);
                 slice_ui.selected = true;
-                this._dragUI = slice_ui;
+                this._displaceOverlay = slice_ui;
             } 
 
+            // v We found the scale handler!
             slice_ui.onScale = (factor: number) => {
                 this._scalingId = slice_ui.id;
                 this._onScale(slice_ui.id, this._scalingStartLen * factor);
             }
 
+            // v ...What is this FOR?!?!?! To continue scaling at each refresh moment?
+            // v Are we calling refresh per frame during Scale?!
             if (this._scaling && this._scalingId === slice.id) {
                 slice_ui.startDrag(this._scalingStartPoint);
                 slice_ui.selected = true;
@@ -553,44 +564,43 @@ export class UIPie extends UIElement {
         p5.stroke(p5.color(this.strokeColor));
         p5.strokeWeight(this.strokeWeight);
 
+        // Draw logic changes when displacing. Does it change with other actions?
+        // Move into the slices? Maybe not possible. Displacement sometimes seems
+        // like a Pie-level action.
+
         const len = this.slices.length;
         for (let i = 0; i < len; i++) {
-            if (this._dragging && this._dragUI.id == this.slices[i].id) continue;
+            // But maybe each slice knows not to draw if being displaced?
+            // No.  BUT we could simplify this logic check I think.
+            if (this._displacing && this._displaceOverlay.id == this.slices[i].id) continue;
             this.slices[i].draw(p5);
         }
 
-        if (this._dragging && this._dragUI) {
-            let c = this._dragUI.color;
-            this._dragUI.color = [...c, 200];
-            this._dragUI.draw(p5);
-            this._dragUI.color = c;
+        // And we could try to encapsulate this in some method (within slice?)
+        if (this._displacing && this._displaceOverlay) {
+            let c = this._displaceOverlay.color;
+            this._displaceOverlay.color = [...c, 200];
+            this._displaceOverlay.draw(p5); // Nvm because we do draw it here.
+            this._displaceOverlay.color = c;
         }
 
         p5.pop();
     }
 
     mouseClicked({ x, y }: Point): void {
-
-        if (this._scaling) {
-            this._scaling = false;
-            this._scalingId = null;
-            this._scalingStartPoint = null;
-            this._scalingStartLen = null;
-        }
+        console.log("Pie clicked");
+        this.stopDrag();
 
         let selected = false;
-        for (let w of this.slices) {
-            w.mouseClicked({x,y});
+        for (let slice of this.slices) {
+            slice.mouseClicked({x,y});
 
-            selected = selected || w.selected;
-            if (w.selected) this._onSelect(w);
+            selected = selected || slice.selected;
+            if (slice.selected) this.startSelect(slice);
         }
 
-        if (!selected) this._onRelease();
+        if (!selected) this.stopSelect();
 
-        if (this._dragging) {
-            this.stopDrag();
-        }
     }
 
     mouseMoved({ x, y }: Point) {
@@ -601,76 +611,112 @@ export class UIPie extends UIElement {
         for (let w of this.slices) {
             w.mouseMoved({x,y});
         }
-
     }
 
     mousePressed({ x, y }: Point): void {
-        for (let w of this.slices) {
-            w.mousePressed({x,y});
-            this._scaling = true;
-            this._scalingStartPoint = {x,y};
+        for (let slice of this.slices) {
+            slice.mousePressed({x,y});
 
-            if (w._scaling) {
-                let arc_len = util.arcLength(w.bounds().t1, w.bounds().t2);
-                this._scalingStartLen = arc_len;
-                this._scalingId = w.id;
+            if (slice._scaling) {
+                this.startDrag({x,y});
+                this.startScale(slice);
             }
-        }
 
-        if (!this.contains({x,y}) || !this.active) return;
-
-        this.startDrag({x,y});
-    }
-
-    startDrag(p: Point) {
-
-        for (let slice_ui of this.slices) {
-            // slice_ui.selected = false;
-            if (slice_ui.contains(p)) {
-                this._dragLast = p;
-                this._dragUI = slice_ui;
-                // this._dragging = true; 
-                
-                const mid = util.angleBetween(slice_ui.bounds().t1, slice_ui.bounds().t2);
-                this._dragOffset = mid - util.angleFromPoint(p, this.circle);
+            if (slice._displacing) {
+                this.startDrag({x,y});
+                this.startDisplace(slice);
             }
         }
     }
 
     mouseDragged({x,y}: Point) {
-        if (this._scaling) {
 
-            for (let w of this.slices) {
-                if (this._scalingId) {
-                    w.scaling = w.id === this._scalingId;
-                }
-                w.mouseDragged({x,y});
-            }
+        const curr = {x,y};
+
+        for (let slice of this.slices) {
+            slice.mouseDragged(curr);
         }
 
-        // TODO: Fix UISlice contains to accurately reflect bounds when selected
-        // TODO: Also check against having started dragging inside of the slice!
-        if (!this._dragUI) return;
-        this._dragging = true; // <- we only mark this here so that we return on line 457 when clicked is called at drag release
+        if (this._scaling) {
+            this.dragScale(curr);
+        }
 
+        if (this._displacing) {
+            this.dragDisplace(curr);
+        }
+
+        this._dragLast = curr;
+    }
+
+    startSelect(slice: UIPieSlice) {
+        this._onSelect(slice);
+    }
+
+    stopSelect() {
+        this._onRelease();
+    }
+
+    startDrag(p: Point) {
+        this._dragLast = p;
+    }
+
+    stopDrag() {
+        if (this._scaling) this.stopScale();
+
+        if (this._displacing) this.stopDisplace();
+
+        this._dragLast = null;
+    }
+
+    startScale(slice: UISlice) {
+        this._scaling = true;
+
+        let arc_len = util.arcLength(slice.bounds().t1, slice.bounds().t2);
+        this._scalingStartLen = arc_len;
+        this._scalingId = slice.id;
+    }
+
+    dragScale(curr: Point) {
+        for (let w of this.slices) {
+            if (this._scalingId) {
+                w._scaling = w.id === this._scalingId;
+            }
+            w.mouseDragged(curr);
+        }
+    }
+
+    stopScale() {
+        this._scaling = false;
+        this._scalingId = null;
+        this._scalingStartPoint = null;
+        this._scalingStartLen = null;
+    }
+
+    startDisplace(slice: UIPieSlice) {
+        this._displacing = true;
+        this._displaceOverlay = slice;   
+
+        const mid = util.angleBetween(slice.bounds().t1, slice.bounds().t2);
+        this._dragOffset = mid - util.angleFromPoint(this._dragLast, this.circle);
+    }
+
+    dragDisplace(curr: Point) {
         // Calculating angles for the floating slice
         // TODO: ??? Move this logic inside UISlice's own drag hanlder ???
+        const theta = this._dragOffset + util.angleFromPoint(curr, this.circle);
 
-        const theta = this._dragOffset + util.angleFromPoint({x,y}, this.circle);
-
-        const drag_arc = {...this._dragUI.ogBounds}; //Copy to keep original bounds intact for snap-back
+        const drag_arc = {...this._displaceOverlay.ogBounds}; //Copy to keep original bounds intact for snap-back
         const drag_len = util.arcLength(drag_arc.t1, drag_arc.t2);
         drag_arc.t1 = mod(theta - drag_len * 0.5, TWO_PI);
         drag_arc.t2 = mod(theta + drag_len * 0.5, TWO_PI);
 
-        this._dragUI.refresh(drag_arc);
-        this._dragUI.active = true;
-        this._dragUI.selected = true;
+        this._displaceOverlay.refresh(drag_arc);
+        this._displaceOverlay.active = true;
+        this._displaceOverlay.selected = true;
 
         // Check if we crossed next or previous slice's midpoint.
         // 1. Get handed direction 
         const last = this._dragLast;
-        const curr = {x,y};
         
         const a = util.angleFromPoint(last, this.circle);
         const b = util.angleFromPoint(curr, this.circle);
@@ -682,7 +728,7 @@ export class UIPie extends UIElement {
 
         // 2. Next slice depends on clockwise or counterclockwise direction
         const l = this.slices.length;
-        const curr_i = this.slices.findIndex(w => w.id === this._dragUI.id);
+        const curr_i = this.slices.findIndex(w => w.id === this._displaceOverlay.id);
         const next_i = mod(curr_i + sign, l);
 
         // 3. Will compare against start or end edge of floating slice, depending on direction
@@ -704,26 +750,20 @@ export class UIPie extends UIElement {
         }
 
         const diff = Math.abs(perp_mid - floating_edge);
-        const near = diff <= TWO_PI / 4; 
+        const near = diff <= TWO_PI / 4; // <- near as in close enough to the threshold (perp_mid)
 
-        if (near) this._onSliceDrag(this._dragUI.id, dir);
+        if (near) this._onDisplace(this._displaceOverlay.id, dir);
 
-        // Keep track of last point in drag for next call
-        this._dragLast = curr;
     }
 
-    stopDrag() {
-        this._scaling = false;
+    stopDisplace() {
+        if (!this._displacing) return;
+        if (!this._displaceOverlay) return;
 
-        if (!this._dragging) return;
-        if (!this._dragUI) return;
-
-        this._dragging = false;
-        this._dragLast = null;
-
-        const og_slice = this.slices.find(w => w.id === this._dragUI.id);
+        this._displacing = false;
+        const og_slice = this.slices.find(w => w.id === this._displaceOverlay.id);
         og_slice.reset();
 
-        this._dragUI = null;
+        this._displaceOverlay = null;
     }
 }
